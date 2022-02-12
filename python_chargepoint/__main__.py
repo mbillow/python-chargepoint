@@ -2,15 +2,17 @@ import sys
 import logging
 from getpass import getpass
 
-from . import LOGGER
 from .client import ChargePoint
+from .constants import _LOGGER
 from .exceptions import ChargePointLoginError
 
 if __name__ == "__main__":
     stream_handler = logging.StreamHandler(sys.stdout)
+    # stream_handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(levelname)s: %(message)s")
     stream_handler.setFormatter(formatter)
-    LOGGER.addHandler(stream_handler)
+    _LOGGER.addHandler(stream_handler)
+    # _LOGGER.setLevel(logging.DEBUG)
 
     username = input("ChargePoint Username: ")
     password = getpass("Password: ")
@@ -34,10 +36,15 @@ if __name__ == "__main__":
         print(f"  DC Charging Speed: {ev.dc_charging_speed} kW")
 
     home_chargers = client.get_home_chargers()
+    chargers_ready_to_charge = []
     if home_chargers:
         print("\n=== Home Charger ===")
     for c in home_chargers:
         panda = client.get_home_charger_status(c)
+
+        if panda.charging_status == "AVAILABLE":
+            chargers_ready_to_charge.append(panda)
+
         print(f"{panda.brand} {panda.model}")
         print(f"  Connected: {panda.connected} (Last Seen: {panda.last_connected_at})")
         print(f"  Plugged-In: {panda.plugged_in}")
@@ -54,3 +61,20 @@ if __name__ == "__main__":
         print(f"  Miles Added: {session.miles_added}")
         print(f"  Energy Used: {session.energy_kwh} kWh")
         print(f"  Cost: {session.total_amount} {session.currency_iso_code}")
+
+        stop_session = input("End current session? [yes|no]: ")
+        if stop_session == "yes":
+            session.stop()
+
+        start_session = input("Start a new session? [yes|no]: ")
+        if start_session == "yes":
+            client.start_charging_session(device_id=session.device_id)
+            print(f"Resumed session with new ID: {session.session_id}")
+
+    elif chargers_ready_to_charge:
+        for panda in chargers_ready_to_charge:
+            start_session = input(
+                f"Start a new session on {panda.model} ({panda.charger_id})? [yes|no]: "
+            )
+            if start_session:
+                client.start_charging_session(panda.charger_id)

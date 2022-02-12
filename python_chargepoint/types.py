@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Callable
+from typing import List
+
+from .constants import _LOGGER
 
 
 @dataclass
@@ -9,7 +11,7 @@ class ElectricVehicle:
     model: str
     primary_vehicle: bool
     color: str
-    imageUrl: str
+    image_url: str
     year: int
     charging_speed: int
     dc_charging_speed: int
@@ -21,7 +23,7 @@ class ElectricVehicle:
             model=json["model"]["name"],
             primary_vehicle=json["primaryVehicle"],
             color=json["modelYearColor"]["colorName"],
-            imageUrl=json["modelYearColor"]["imageUrl"],
+            image_url=json["modelYearColor"]["imageUrl"],
             year=json["modelYear"]["year"],
             charging_speed=json["modelYear"]["chargingSpeed"],
             dc_charging_speed=json["modelYear"]["dcChargingSpeed"],
@@ -87,6 +89,7 @@ class ChargePointAccount:
 
 @dataclass
 class HomeChargerStatus:
+    charger_id: int
     brand: str
     plugged_in: bool
     connected: bool
@@ -98,8 +101,9 @@ class HomeChargerStatus:
     mac_address: str
 
     @classmethod
-    def from_json(cls, json: dict):
+    def from_json(cls, charger_id: int, json: dict):
         return cls(
+            charger_id=charger_id,
             brand=json["brand"],
             plugged_in=json["is_plugged_in"],
             connected=json["is_connected"],
@@ -139,10 +143,17 @@ class UserChargingStatus:
     @classmethod
     def from_json(cls, json: dict):
         status = json["charging"]
+        state = status.get("state", "unknown")
+        if state == "unknown":
+            _LOGGER.warning(
+                "Charging status returned without a state. ",
+                "This is normally due to the eventually consistent ",
+                "nature of the session API.",
+            )
         return cls(
             session_id=status["sessionId"],
             start_time=datetime.fromtimestamp(status["startTimeUTC"]),
-            state=status["state"],
+            state=state,
             stations=[
                 ChargePointStation.from_json(station) for station in status["stations"]
             ],
@@ -193,126 +204,4 @@ class PowerUtility:
             id=json["id"],
             name=json["name"],
             plans=[PowerUtilityPlan.from_json(plan) for plan in json["plans"]],
-        )
-
-
-@dataclass
-class ChargingSession:
-    session_id: int
-    start_time: datetime
-
-    # Device Information
-    device_id: int
-    device_name: str
-    charging_state: str
-    charging_time: int
-    energy_kwh: float
-    miles_added: float
-    miles_added_per_hour: float
-    outlet_number: int
-    port_level: int
-    power_kw: float
-    purpose: str
-
-    # Payment
-    currency_iso_code: str
-    payment_completed: bool
-    payment_type: str
-    pricing_spec_id: int
-    total_amount: float
-
-    # API / Misc.
-    api_flag: bool
-    enable_stop_charging: bool
-    has_charging_receipt: bool
-    has_utility_info: bool
-    is_home_charger: bool
-    is_purpose_finalized: bool
-    last_update_data_timestamp: datetime
-    stop_charge_supported: bool
-
-    # Owner / Location
-    company_id: int
-    company_name: str
-    latitude: float
-    longitude: float
-    address: str
-    city: str
-    state_name: str
-    country: str
-    zipcode: str
-
-    # Session Update History
-    update_data: List[ChargingSessionUpdate]
-    update_period: int
-
-    utility: Optional[PowerUtility]
-
-    def __init__(self, mod_func: Callable, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._mod_func = mod_func
-
-    @classmethod
-    def from_json(cls, json: dict, mod_func: Callable):
-        return cls(
-            session_id=json["session_id"],
-            start_time=datetime.fromtimestamp(json["start_time"] / 1000),
-            device_id=json["device_id"],
-            device_name=json["device_name"],
-            charging_state=json["current_charging"],
-            charging_time=json["charging_time"],
-            energy_kwh=json["energy_kwh"],
-            miles_added=json["miles_added"],
-            miles_added_per_hour=json["miles_added_per_hour"],
-            outlet_number=json["outlet_number"],
-            port_level=json["port_level"],
-            power_kw=json["power_kw"],
-            purpose=json["purpose"],
-            currency_iso_code=json["currency_iso_code"],
-            payment_completed=json["payment_completed"],
-            payment_type=json["payment_type"],
-            pricing_spec_id=json["pricing_spec_id"],
-            total_amount=json["total_amount"],
-            api_flag=json["api_flag"],
-            enable_stop_charging=json["enable_stop_charging"],
-            has_charging_receipt=json["has_charging_receipt"],
-            has_utility_info=json["has_utility_info"],
-            is_home_charger=json["is_home_charger"],
-            is_purpose_finalized=json["is_purpose_finalized"],
-            last_update_data_timestamp=datetime.fromtimestamp(
-                json["last_update_data_timestamp"] / 1000
-            ),
-            stop_charge_supported=json["stop_charge_supported"],
-            company_id=json["company_id"],
-            company_name=json["company_name"],
-            latitude=json["lat"],
-            longitude=json["lon"],
-            address=json["address1"],
-            city=json["city"],
-            state_name=json["state_name"],
-            country=json["country"],
-            zipcode=json["zipcode"],
-            update_data=[
-                ChargingSessionUpdate.from_json(update)
-                for update in json["update_data"]
-            ],
-            update_period=json["update_period"],
-            utility=PowerUtility.from_json(json["utility"]),
-            mod_func=mod_func,
-        )
-
-    def start(self, max_retry: int = 10):
-        if not self._mod_func:
-            raise RuntimeError("No modification function set")
-        self._mod_func(action="start", device_id=self.device_id, max_retry=max_retry)
-
-    def stop(self, max_retry: int = 10):
-        if not self._mod_func:
-            raise RuntimeError("No modification function set")
-        self._mod_func(
-            action="stop",
-            device_id=self.device_id,
-            port_number=self.outlet_number,
-            session_id=self.session_id,
-            max_retry=max_retry,
         )

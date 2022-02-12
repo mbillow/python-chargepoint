@@ -16,7 +16,7 @@ more robust time series database.
 ### Login
 
 ```python
-from chargepoint import ChargePoint
+from python_chargepoint import ChargePoint
 
 client = ChargePoint(username="user", password="password")
 print(client.user_id)
@@ -25,7 +25,7 @@ print(client.user_id)
 
 ### Home Chargers
 ```python
-from chargepoint import ChargePoint
+from python_chargepoint import ChargePoint
 
 client = ChargePoint(username="user", password="password")
 chargers = client.get_home_chargers()
@@ -50,12 +50,12 @@ for charger_id in chargers:
 ### Account Charging Status and Session
 
 ```python
-from chargepoint import ChargePoint
+from python_chargepoint import ChargePoint
 
 client = ChargePoint(username="user", password="password")
 charging = client.get_user_charging_status()
 if charging:
-  print(charging)
+    print(charging)
 # UserChargingStatus(
 #   session_id=1234567890,
 #   start_time=datetime.datetime(2022, 1, 30, 13, 32, 45), 
@@ -68,8 +68,8 @@ if charging:
 #       longitude=-90.0000000)
 #     ])
 
-  session = client.get_charging_session(charging.session_id)
-  print(session)
+    session = client.get_charging_session(charging.session_id)
+    print(session)
 #  ChargingSession(
 #    session_id=1234567890, 
 #    start_time=datetime.datetime(2022, 1, 30, 13, 32, 45), 
@@ -140,13 +140,28 @@ if charging:
 #### Starting or Stopping a Session
 
 ```python
-from chargepoint import ChargePoint
+from python_chargepoint import ChargePoint
 
 client = ChargePoint(username="user", password="password")
 charging = client.get_user_charging_status()
 
 if charging:
-  session = client.get_charging_session(charging.session_id)
-  session.stop()
-  session.start()
+    session = client.get_charging_session(charging.session_id)
+    session.stop()
+
+    # If you wanted to charge again, you can start a new session.
+    session = client.start_charging_session(session.device_id)
+```
+
+You can also start a new session by providing any device ID you want to start charging on.
+
+```python
+from python_chargepoint import ChargePoint
+
+client = ChargePoint(username="user", password="password")
+home_flex_id = client.get_home_chargers()[0]
+home_flex = client.get_home_charger_status(home_flex_id)
+
+if home_flex.charging_status == "AVAILABLE":
+    session = client.start_charging_session(home_flex_id)
 ```
