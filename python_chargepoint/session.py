@@ -210,7 +210,7 @@ class ChargingSession:
         self.charging_time = status["charging_time"]
         self.energy_kwh = status["energy_kwh"]
         self.miles_added = status["miles_added"]
-        self.miles_added_per_hour = status["miles_added_per_hour"]
+        self.miles_added_per_hour = status.get("miles_added_per_hour", 0.0)
         self.outlet_number = status["outlet_number"]
         self.port_level = status["port_level"]
         self.power_kw = status["power_kw"]

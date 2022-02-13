@@ -27,11 +27,11 @@ def _dict_for_query(device_data: dict) -> dict:
 
 def _require_login(func):
     @wraps(func)
-    def check_login(*args):
+    def check_login(*args, **kwargs):
         self = args[0]
         if not self._logged_in:
             raise RuntimeError("Must login to use ChargePoint API")
-        return func(*args)
+        return func(*args, **kwargs)
     return check_login
 
 

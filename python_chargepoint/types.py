@@ -146,9 +146,9 @@ class UserChargingStatus:
         state = status.get("state", "unknown")
         if state == "unknown":
             _LOGGER.warning(
-                "Charging status returned without a state. ",
-                "This is normally due to the eventually consistent ",
-                "nature of the session API.",
+                "Charging status returned without a state. " +
+                "This is normally due to the eventually consistent " +
+                "nature of the session API."
             )
         return cls(
             session_id=status["sessionId"],
