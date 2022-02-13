@@ -11,7 +11,7 @@ from .exceptions import ChargePointCommunicationException
 
 
 def _modify(
-    client: "ChargePoint",
+    client: "ChargePoint",  # noqa: F821
     action: str,
     device_id: int,
     port_number: int = 1,
@@ -73,8 +73,7 @@ def _modify(
 
             # If we just started a new session, return the new ID.
             if action == "start":
-                print(response.json())
-                return response.json()["sessionId"]
+                return response.json().get("sessionId")
             # Otherwise, just return.
             return
 
@@ -143,7 +142,9 @@ class ChargingSession:
 
     utility: Optional[PowerUtility]
 
-    def __init__(self, session_id: int, client: "ChargePoint", *args, **kwargs):
+    def __init__(
+        self, session_id: int, client: "ChargePoint", *args, **kwargs  # noqa: F821
+    ):
         super().__init__(*args, **kwargs)
         self._client = client
         self.session_id = session_id
@@ -158,7 +159,7 @@ class ChargingSession:
         # that are started and then immediately retrieved, this normally
         # becomes consistent within a few seconds, so we will retry this
         # call up to 10 times.
-        for attempt in range(10):
+        for attempt in range(1, 11):
             # Today on "Every Internal API is Weird as Hell"...
             # I present to you: passing a JSON blob as a URL parameter.
             response = self._client.session.get(
@@ -187,9 +188,7 @@ class ChargingSession:
                 "error" in status.keys()
             )
             if error and attempt < 10:
-                _LOGGER.debug(
-                    "Failed to retrieve session. Attempt (%d/10)", attempt + 1
-                )
+                _LOGGER.warning("Failed to retrieve session. Attempt (%d/10)", attempt)
                 _LOGGER.debug("%s", json)
                 sleep(1)
                 continue
@@ -244,6 +243,7 @@ class ChargingSession:
         ]
         self.update_period = status["update_period"]
 
+        self.utility = None
         utility = status.get("utility")
         if utility:
             self.utility = PowerUtility.from_json(utility)
@@ -259,7 +259,9 @@ class ChargingSession:
         )
 
     @classmethod
-    def start(cls, device_id: int, client: "ChargePoint", max_retry: int = 30):
+    def start(
+        cls, device_id: int, client: "ChargePoint", max_retry: int = 30  # noqa: F821
+    ):
         session_id = _modify(
             client=client, action="start", device_id=device_id, max_retry=max_retry
         )
@@ -270,5 +272,3 @@ class ChargingSession:
         status = client.get_user_charging_status()
         if session_id and status:
             return cls(session_id=status.session_id, client=client)
-
-        _LOGGER.error("Failed to start session, no ID returned.")

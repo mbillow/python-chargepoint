@@ -24,8 +24,8 @@ if __name__ == "__main__":
 
     print("\n=== Account Information ===")
     acct = client.get_account()
-    print(f"Name: {acct.user.fullName}")
-    print(f"Balance: {acct.accountBalance.amount} {acct.accountBalance.currency}")
+    print(f"Name: {acct.user.full_name}")
+    print(f"Balance: {acct.account_balance.amount} {acct.account_balance.currency}")
 
     print("\n=== Vehicles ===")
     evs = client.get_vehicles()

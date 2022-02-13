@@ -33,34 +33,34 @@ class ElectricVehicle:
 @dataclass
 class ChargePointUser:
     email: str
-    evatarUrl: str
-    familyName: str
-    fullName: str
-    givenName: str
+    evatar_url: str
+    family_name: str
+    full_name: str
+    given_name: str
     phone: str
-    phoneCountryId: int
-    userId: int
+    phone_country_id: int
+    user_id: int
     username: str
 
     @classmethod
     def from_json(cls, json: dict):
         return cls(
             email=json["email"],
-            evatarUrl=json["evatarUrl"],
-            familyName=json["familyName"],
-            fullName=json["fullName"],
-            givenName=json["givenName"],
+            evatar_url=json["evatarUrl"],
+            family_name=json["familyName"],
+            full_name=json["fullName"],
+            given_name=json["givenName"],
             phone=json["phone"],
-            phoneCountryId=json["phoneCountryId"],
-            userId=json["userId"],
+            phone_country_id=json["phoneCountryId"],
+            user_id=json["userId"],
             username=json["username"],
         )
 
 
 @dataclass
 class AccountBalance:
-    accountNumber: str
-    accountState: str
+    account_number: str
+    account_state: str
     amount: str
     currency: str
 
@@ -68,8 +68,8 @@ class AccountBalance:
     def from_json(cls, json: dict):
         balance = json["balance"]
         return cls(
-            accountNumber=json["accountNumber"],
-            accountState=json["accountState"],
+            account_number=json["accountNumber"],
+            account_state=json["accountState"],
             amount=balance["amount"],
             currency=balance["currency"],
         )
@@ -78,13 +78,13 @@ class AccountBalance:
 @dataclass
 class ChargePointAccount:
     user: ChargePointUser
-    accountBalance: AccountBalance
+    account_balance: AccountBalance
 
     @classmethod
     def from_json(cls, json: dict):
         user = ChargePointUser.from_json(json["user"])
         balance = AccountBalance.from_json(json["accountBalance"])
-        return cls(user=user, accountBalance=balance)
+        return cls(user=user, account_balance=balance)
 
 
 @dataclass
@@ -146,9 +146,9 @@ class UserChargingStatus:
         state = status.get("state", "unknown")
         if state == "unknown":
             _LOGGER.warning(
-                "Charging status returned without a state. " +
-                "This is normally due to the eventually consistent " +
-                "nature of the session API."
+                "Charging status returned without a state. "
+                + "This is normally due to the eventually consistent "
+                + "nature of the session API."
             )
         return cls(
             session_id=status["sessionId"],

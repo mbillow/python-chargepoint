@@ -32,6 +32,7 @@ def _require_login(func):
         if not self._logged_in:
             raise RuntimeError("Must login to use ChargePoint API")
         return func(*args, **kwargs)
+
     return check_login
 
 
