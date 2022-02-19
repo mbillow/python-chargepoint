@@ -1,3 +1,4 @@
+from datetime import datetime
 from python_chargepoint.types import (
     ElectricVehicle,
     ChargePointAccount,
@@ -6,21 +7,9 @@ from python_chargepoint.types import (
 )
 
 
-def test_electric_vehicle_from_json():
-    json = {
-        "id": 0,
-        "make": {"id": 0, "name": "Pytest"},
-        "model": {"defaultSelect": False, "id": 1, "name": "Test"},
-        "modelYear": {"chargingSpeed": 11.0, "dcChargingSpeed": 150.0, "year": 2021},
-        "modelYearColor": {
-            "colorId": 0,
-            "colorName": "Green",
-            "defaultSelect": False,
-            "imageUrl": "https://pytest.com",
-        },
-        "primaryVehicle": True,
-    }
-    ev = ElectricVehicle.from_json(json)
+def test_electric_vehicle_from_json(electric_vehicle_json: dict):
+    ev = ElectricVehicle.from_json(electric_vehicle_json)
+
     assert ev.year == 2021
     assert ev.color == "Green"
     assert ev.make == "Pytest"
@@ -31,30 +20,8 @@ def test_electric_vehicle_from_json():
     assert ev.primary_vehicle is True
 
 
-def test_account_from_json():
-    json = {
-        "user": {
-            "email": "test@pytest.com",
-            "evatarUrl": "https://pytest.com",
-            "familyName": "Test",
-            "fullName": "Pytest Test",
-            "givenName": "Pytest",
-            "phone": "1234567890",
-            "phoneCountryId": 1,
-            "userId": 1234567890,
-            "username": "pytest",
-        },
-        "accountBalance": {
-            "accountNumber": "1234567890",
-            "accountState": "test",
-            "balance": {
-                "amount": "0.0",
-                "currency": "USD",
-            },
-        },
-    }
-
-    acct = ChargePointAccount.from_json(json)
+def test_account_from_json(account_json: dict):
+    acct = ChargePointAccount.from_json(account_json)
 
     assert acct.user.email == "test@pytest.com"
     assert acct.user.evatar_url == "https://pytest.com"
@@ -72,20 +39,8 @@ def test_account_from_json():
     assert acct.account_balance.currency == "USD"
 
 
-def test_home_charger_status_from_json(timestamp):
-    json = {
-        "brand": "CP",
-        "is_plugged_in": True,
-        "is_connected": True,
-        "charging_status": "AVAILABLE",
-        "last_connected_at": timestamp.timestamp() * 1000,
-        "is_reminder_enabled": False,
-        "plug_in_reminder_time": "0:00",
-        "model": "HOME FLEX",
-        "mac_address": "00:00:00:00:00:00",
-    }
-
-    home = HomeChargerStatus.from_json(charger_id=1, json=json)
+def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: dict):
+    home = HomeChargerStatus.from_json(charger_id=1, json=home_charger_json)
 
     assert home.charger_id == 1
     assert home.brand == "CP"

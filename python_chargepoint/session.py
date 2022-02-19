@@ -53,7 +53,7 @@ def _modify(
     action_status = response.json()
     ack_id = action_status["ackId"]
 
-    for i in range(max_retry):
+    for i in range(max_retry):  # pragma: no cover
         _LOGGER.debug(
             "Checking station modification status. (Attempt %d/%d)",
             i + 1,
@@ -159,7 +159,7 @@ class ChargingSession:
         # that are started and then immediately retrieved, this normally
         # becomes consistent within a few seconds, so we will retry this
         # call up to 10 times.
-        for attempt in range(1, 11):
+        for attempt in range(1, 11):  # pragma: no cover
             # Today on "Every Internal API is Weird as Hell"...
             # I present to you: passing a JSON blob as a URL parameter.
             response = self._client.session.get(
@@ -270,5 +270,5 @@ class ChargingSession:
         # session IDs... I have no clue what it means, so we are just going to
         # get the correct session ID from the status API.
         status = client.get_user_charging_status()
-        if session_id and status:
+        if session_id and status:  # pragma: no cover
             return cls(session_id=status.session_id, client=client)

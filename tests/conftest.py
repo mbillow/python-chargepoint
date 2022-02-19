@@ -47,6 +47,63 @@ def authenticated_client() -> ChargePoint:
 
 
 @pytest.fixture
+def electric_vehicle_json():
+    return {
+        "id": 0,
+        "make": {"id": 0, "name": "Pytest"},
+        "model": {"defaultSelect": False, "id": 1, "name": "Test"},
+        "modelYear": {"chargingSpeed": 11.0, "dcChargingSpeed": 150.0, "year": 2021},
+        "modelYearColor": {
+            "colorId": 0,
+            "colorName": "Green",
+            "defaultSelect": False,
+            "imageUrl": "https://pytest.com",
+        },
+        "primaryVehicle": True,
+    }
+
+
+@pytest.fixture
+def account_json():
+    return {
+        "user": {
+            "email": "test@pytest.com",
+            "evatarUrl": "https://pytest.com",
+            "familyName": "Test",
+            "fullName": "Pytest Test",
+            "givenName": "Pytest",
+            "phone": "1234567890",
+            "phoneCountryId": 1,
+            "userId": 1234567890,
+            "username": "pytest",
+        },
+        "accountBalance": {
+            "accountNumber": "1234567890",
+            "accountState": "test",
+            "balance": {
+                "amount": "0.0",
+                "currency": "USD",
+            },
+        },
+    }
+
+
+@pytest.fixture
+def home_charger_json(timestamp: datetime):
+    return {
+        "brand": "CP",
+        "is_plugged_in": True,
+        "is_connected": True,
+        "charging_status": "AVAILABLE",
+        "last_connected_at": timestamp.timestamp() * 1000,
+        "is_reminder_enabled": False,
+        "plug_in_reminder_time": "0:00",
+        "model": "HOME FLEX",
+        "mac_address": "00:00:00:00:00:00",
+    }
+
+
+@pytest.fixture
 def charging_status_json(timestamp: datetime) -> dict:
     return {
         "start_time": timestamp.timestamp() * 1000,

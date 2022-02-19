@@ -118,7 +118,7 @@ class ChargePoint:
         )
 
         if response.status_code != codes.ok:
-            return ChargePointCommunicationException(
+            raise ChargePointCommunicationException(
                 response=response, message="Failed to log out!"
             )
 
@@ -250,8 +250,6 @@ class ChargePoint:
     def start_charging_session(
         self, device_id: int, max_retry: int = 30
     ) -> ChargingSession:
-        if not self._logged_in:
-            raise RuntimeError("Must login to use ChargePoint API")
 
         return ChargingSession.start(
             device_id=device_id, client=self, max_retry=max_retry
