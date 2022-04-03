@@ -8,6 +8,8 @@ from python_chargepoint.constants import V5_URL, MAP_URL
 from python_chargepoint.exceptions import (
     ChargePointLoginError,
     ChargePointCommunicationException,
+    ChargePointInvalidSession,
+    ChargePointBaseException,
 )
 
 from .test_session import _add_start_function_responses
@@ -38,6 +40,81 @@ def test_client_invalid_auth():
         ChargePoint("test", "demo")
 
     assert exc.value.response.status_code == 500
+
+
+@responses.activate
+def test_client_expired_session(account_json: dict):
+    responses.add(
+        responses.GET,
+        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        status=200,
+        json=account_json,
+    )
+    responses.add(
+        responses.GET,
+        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        status=401,
+    )
+
+    client = ChargePoint(
+        username="test",
+        password="demo",
+        session_token="rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
+    )
+    with pytest.raises(ChargePointInvalidSession) as exc:
+        client.get_account()
+
+    assert exc.value.response.status_code == 401
+
+
+@responses.activate
+def test_client_invalid_token_format():
+    with pytest.raises(ChargePointBaseException):
+        ChargePoint(username="test", password="demo", session_token="bad-token")
+
+
+@responses.activate
+def test_client_with_session_token(account_json: dict):
+    responses.add(
+        responses.GET,
+        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        status=200,
+        json=account_json,
+    )
+
+    session_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+
+    client = ChargePoint(username="test", password="demo", session_token=session_token)
+
+    assert client.session_token == session_token
+    assert client.user_id == str(account_json["user"]["userId"])
+
+
+@responses.activate
+def test_client_expired_session_token():
+    session_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+    responses.add(
+        responses.GET,
+        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        status=401,
+    )
+    responses.add(
+        responses.POST,
+        "https://account.chargepoint.com/account/v2/driver/profile/account/login",
+        status=200,
+        json={
+            "user": {"userId": 1},
+            "sessionId": session_token,
+        },
+    )
+
+    client = ChargePoint(
+        username="test",
+        password="demo",
+        session_token="expired#D???????#RNA-US",
+    )
+
+    assert client.session_token == session_token
 
 
 @responses.activate
@@ -158,6 +235,34 @@ def test_client_get_home_charger_status_failure(authenticated_client: ChargePoin
 
     with pytest.raises(ChargePointCommunicationException) as exc:
         authenticated_client.get_home_charger_status(1234567890)
+
+    assert exc.value.response.status_code == 500
+
+
+@responses.activate
+def test_client_get_home_charger_technical_info(
+    authenticated_client: ChargePoint, home_charger_tech_info_json: dict
+):
+    responses.add(
+        responses.POST,
+        V5_URL,
+        status=200,
+        json={"get_station_technical_info": home_charger_tech_info_json},
+    )
+
+    tech = authenticated_client.get_home_charger_technical_info(1234567890)
+
+    assert tech.software_version == "1.2.3.4"
+
+
+@responses.activate
+def test_client_get_home_charger_technical_info_failure(
+    authenticated_client: ChargePoint,
+):
+    responses.add(responses.POST, V5_URL, status=500)
+
+    with pytest.raises(ChargePointCommunicationException) as exc:
+        authenticated_client.get_home_charger_technical_info(1234567890)
 
     assert exc.value.response.status_code == 500
 

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 import responses
@@ -8,7 +8,7 @@ from python_chargepoint import ChargePoint
 
 @pytest.fixture(scope="session")
 def timestamp() -> datetime:
-    return datetime.now()
+    return datetime.now(tz=timezone.utc)
 
 
 @pytest.fixture
@@ -100,6 +100,21 @@ def home_charger_json(timestamp: datetime):
         "plug_in_reminder_time": "0:00",
         "model": "HOME FLEX",
         "mac_address": "00:00:00:00:00:00",
+    }
+
+
+@pytest.fixture
+def home_charger_tech_info_json(timestamp: datetime):
+    return {
+        "model_number": "CPH50-NEMA6-50-L23",
+        "serial_number": "1234567890",
+        "wifi_mac": "00:00:00:00:00:00",
+        "mac_address": "00:00:00:00:00:00",
+        "software_version": "1.2.3.4",
+        "last_ota_update": timestamp.timestamp() * 1000,
+        "device_ip": "10.0.0.1",
+        "last_connected_at": timestamp.timestamp() * 1000,
+        "is_stop_charge_supported": True,
     }
 
 

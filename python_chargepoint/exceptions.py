@@ -23,3 +23,9 @@ class ChargePointLoginError(ChargePointCommunicationException):
     """
     Login failed.
     """
+
+
+class ChargePointInvalidSession(ChargePointCommunicationException):
+    """
+    Login expired.
+    """

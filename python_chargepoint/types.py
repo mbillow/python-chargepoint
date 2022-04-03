@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from .constants import _LOGGER
@@ -108,11 +108,42 @@ class HomeChargerStatus:
             plugged_in=json["is_plugged_in"],
             connected=json["is_connected"],
             charging_status=json["charging_status"],
-            last_connected_at=datetime.fromtimestamp(json["last_connected_at"] / 1000),
+            last_connected_at=datetime.fromtimestamp(
+                json["last_connected_at"] / 1000, tz=timezone.utc
+            ),
             reminder_enabled=json["is_reminder_enabled"],
             reminder_time=json["plug_in_reminder_time"],
             model=json["model"],
             mac_address=json["mac_address"],
+        )
+
+
+@dataclass
+class HomeChargerTechnicalInfo:
+    model: str
+    serial_number: str
+    mac_address: str
+    software_version: str
+    last_ota_update: datetime
+    device_ip: str
+    last_connected_at: datetime
+    is_stop_charge_supported: bool
+
+    @classmethod
+    def from_json(cls, json: dict):
+        return cls(
+            model=json["model_number"],
+            serial_number=json["serial_number"],
+            mac_address=json["wifi_mac"],
+            software_version=json["software_version"],
+            last_ota_update=datetime.fromtimestamp(
+                json["last_ota_update"] / 1000, tz=timezone.utc
+            ),
+            device_ip=json["device_ip"],
+            last_connected_at=datetime.fromtimestamp(
+                json["last_connected_at"] / 1000, tz=timezone.utc
+            ),
+            is_stop_charge_supported=json["is_stop_charge_supported"],
         )
 
 
@@ -152,7 +183,7 @@ class UserChargingStatus:
             )
         return cls(
             session_id=status["sessionId"],
-            start_time=datetime.fromtimestamp(status["startTimeUTC"]),
+            start_time=datetime.fromtimestamp(status["startTimeUTC"], tz=timezone.utc),
             state=state,
             stations=[
                 ChargePointStation.from_json(station) for station in status["stations"]
@@ -171,7 +202,7 @@ class ChargingSessionUpdate:
         return cls(
             energy_kwh=json["energy_kwh"],
             power_kw=json["power_kw"],
-            timestamp=datetime.fromtimestamp(json["timestamp"] / 1000),
+            timestamp=datetime.fromtimestamp(json["timestamp"] / 1000, tz=timezone.utc),
         )
 
 

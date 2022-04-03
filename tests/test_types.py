@@ -3,6 +3,7 @@ from python_chargepoint.types import (
     ElectricVehicle,
     ChargePointAccount,
     HomeChargerStatus,
+    HomeChargerTechnicalInfo,
     UserChargingStatus,
 )
 
@@ -52,6 +53,21 @@ def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: d
     assert home.reminder_time == "0:00"
     assert home.model == "HOME FLEX"
     assert home.mac_address == "00:00:00:00:00:00"
+
+
+def test_home_charger_technical_info_from_json(
+    timestamp: datetime, home_charger_tech_info_json: dict
+):
+    tech = HomeChargerTechnicalInfo.from_json(home_charger_tech_info_json)
+
+    assert tech.model == "CPH50-NEMA6-50-L23"
+    assert tech.serial_number == "1234567890"
+    assert tech.mac_address == "00:00:00:00:00:00"
+    assert tech.software_version == "1.2.3.4"
+    assert tech.last_ota_update == timestamp
+    assert tech.device_ip == "10.0.0.1"
+    assert tech.last_connected_at == timestamp
+    assert tech.is_stop_charge_supported
 
 
 def test_user_charging_status_from_json(timestamp, user_charging_status_json: dict):

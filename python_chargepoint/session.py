@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import List, Optional
 from time import sleep
@@ -202,7 +202,9 @@ class ChargingSession:
         _LOGGER.debug("Passed retry loop: %s", response.json())
         status = response.json()["charging_status"]
 
-        self.start_time = datetime.fromtimestamp(status["start_time"] / 1000)
+        self.start_time = datetime.fromtimestamp(
+            status["start_time"] / 1000, tz=timezone.utc
+        )
         self.device_id = status["device_id"]
         self.device_name = status["device_name"]
         self.charging_state = status["current_charging"]
@@ -226,7 +228,7 @@ class ChargingSession:
         self.is_home_charger = status["is_home_charger"]
         self.is_purpose_finalized = status["is_purpose_finalized"]
         self.last_update_data_timestamp = datetime.fromtimestamp(
-            status["last_update_data_timestamp"] / 1000
+            status["last_update_data_timestamp"] / 1000, tz=timezone.utc
         )
         self.stop_charge_supported = status["stop_charge_supported"]
         self.company_id = status["company_id"]

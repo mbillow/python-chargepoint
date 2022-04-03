@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-chargepoint"
-version = "1.0.0"
+version = "1.2.2"
 description = "A simple, Pythonic wrapper for the ChargePoint API."
 authors = ["Marc Billow <mbillow@users.noreply.github.compoetry>"]
 license = "MIT"
