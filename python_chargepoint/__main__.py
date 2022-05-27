@@ -18,10 +18,7 @@ if __name__ == "__main__":
     password = getpass("Password: ")
 
     try:
-        client = ChargePoint(
-            username,
-            password,
-        )
+        client = ChargePoint(username, password)
         print(client.session_token)
     except ChargePointLoginError:
         sys.exit(1)
@@ -30,6 +27,7 @@ if __name__ == "__main__":
     acct = client.get_account()
     print(f"Name: {acct.user.full_name}")
     print(f"Balance: {acct.account_balance.amount} {acct.account_balance.currency}")
+    print(f"Country: {client.region.country_name}")
 
     print("\n=== Vehicles ===")
     evs = client.get_vehicles()

@@ -6,26 +6,29 @@ import pytest
 import responses
 
 from python_chargepoint import ChargePoint
+from python_chargepoint.types import ChargePointDefaultRegion
 from python_chargepoint.session import ChargingSession, _modify
 from python_chargepoint.exceptions import ChargePointCommunicationException
 
 
-def _add_start_function_responses(session_id: Optional[int] = 12345) -> None:
+def _add_start_function_responses(
+    region: ChargePointDefaultRegion, session_id: Optional[int] = 12345
+) -> None:
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/startsession",
+        f"{region.accounts_endpoint}v1/driver/station/startsession",
         status=200,
         json={"ackId": 1},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=403,
         json={"error": "failed to start session"},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=200,
         json={"sessionId": session_id},
     )
@@ -45,10 +48,12 @@ def test_modify_invalid_action():
 
 
 @responses.activate
-def test_stop_session_failure(charging_session: ChargingSession):
+def test_stop_session_failure(
+    region: ChargePointDefaultRegion, charging_session: ChargingSession
+):
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/stopSession",
+        f"{region.accounts_endpoint}v1/driver/station/stopSession",
         status=400,
     )
 
@@ -59,23 +64,25 @@ def test_stop_session_failure(charging_session: ChargingSession):
 
 
 @responses.activate
-def test_stop_session(charging_session: ChargingSession, caplog):
+def test_stop_session(
+    region: ChargePointDefaultRegion, charging_session: ChargingSession, caplog
+):
     caplog.set_level(logging.INFO)
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/stopSession",
+        f"{region.accounts_endpoint}v1/driver/station/stopSession",
         status=200,
         json={"ackId": 1},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=403,
         json={"error": "failed to stop session"},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=200,
         json={},
     )
@@ -85,22 +92,24 @@ def test_stop_session(charging_session: ChargingSession, caplog):
 
 
 @responses.activate
-def test_stop_session_exceed_retry(charging_session: ChargingSession):
+def test_stop_session_exceed_retry(
+    region: ChargePointDefaultRegion, charging_session: ChargingSession
+):
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/stopSession",
+        f"{region.accounts_endpoint}v1/driver/station/stopSession",
         status=200,
         json={"ackId": 1},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=403,
         json={"error": "attempt 1"},
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/station/session/ack",
+        f"{region.accounts_endpoint}v1/driver/station/session/ack",
         status=403,
         json={"error": "attempt 2"},
     )
@@ -119,17 +128,17 @@ def test_start_session(
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    _add_start_function_responses()
+    _add_start_function_responses(region=authenticated_client.region)
 
     responses.add(
         responses.POST,
-        "https://mc.chargepoint.com/map-prod/v2",
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": user_charging_status_json},
     )
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=200,
         json={
@@ -148,24 +157,24 @@ def test_get_session_eventual_consistency(
     user_charging_status_json: dict,
     charging_status_json: dict,
 ):
-    _add_start_function_responses()
+    _add_start_function_responses(region=authenticated_client.region)
 
     responses.add(
         responses.POST,
-        "https://mc.chargepoint.com/map-prod/v2",
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": user_charging_status_json},
     )
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=200,
         json={"charging_status": {"error": "java.lang.NullPointerException"}},
     )
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=200,
         json={"charging_status": charging_status_json},
@@ -179,18 +188,18 @@ def test_get_session_eventual_consistency(
 def test_get_session_eventual_consistency_failure(
     authenticated_client: ChargePoint, user_charging_status_json: dict
 ):
-    _add_start_function_responses()
+    _add_start_function_responses(region=authenticated_client.region)
 
     responses.add(
         responses.POST,
-        "https://mc.chargepoint.com/map-prod/v2",
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": user_charging_status_json},
     )
     for i in range(0, 12):
         responses.add(
             responses.GET,
-            "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+            f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
             + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
             status=200,
             json={"charging_status": {"error": "java.lang.NullPointerException"}},
@@ -206,7 +215,7 @@ def test_get_session_eventual_consistency_failure(
 def test_get_charging_session_error(authenticated_client: ChargePoint):
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=500,
     )
@@ -225,7 +234,7 @@ def test_get_charging_session_no_utility(
 
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=200,
         json={"charging_status": charging_status_json},

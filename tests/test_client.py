@@ -4,7 +4,8 @@ import pytest
 import responses
 
 from python_chargepoint import ChargePoint
-from python_chargepoint.constants import V5_URL, MAP_URL
+from python_chargepoint.types import ChargePointDefaultRegion
+from python_chargepoint.constants import DISCOVERY_API
 from python_chargepoint.exceptions import (
     ChargePointLoginError,
     ChargePointCommunicationException,
@@ -19,7 +20,7 @@ from .test_session import _add_start_function_responses
 def test_client_auth_wrapper(authenticated_client: ChargePoint):
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/profile/account/logout",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/profile/account/logout",
         json={},
     )
 
@@ -29,10 +30,11 @@ def test_client_auth_wrapper(authenticated_client: ChargePoint):
 
 
 @responses.activate
-def test_client_invalid_auth():
+def test_client_invalid_auth(discovery_json: dict, region: ChargePointDefaultRegion):
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v2/driver/profile/account/login",
+        f"{region.accounts_endpoint}v2/driver/profile/account/login",
         status=500,
     )
 
@@ -43,16 +45,28 @@ def test_client_invalid_auth():
 
 
 @responses.activate
-def test_client_expired_session(account_json: dict):
+def test_client_unable_to_discover():
+    responses.add(responses.POST, DISCOVERY_API, status=500)
+    with pytest.raises(ChargePointCommunicationException) as exc:
+        ChargePoint("foo", "bar")
+
+    assert exc.value.response.status_code == 500
+
+
+@responses.activate
+def test_client_expired_session(
+    discovery_json: dict, region: ChargePointDefaultRegion, account_json: dict
+):
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{region.accounts_endpoint}v1/driver/profile/user",
         status=200,
         json=account_json,
     )
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{region.accounts_endpoint}v1/driver/profile/user",
         status=401,
     )
 
@@ -68,16 +82,20 @@ def test_client_expired_session(account_json: dict):
 
 
 @responses.activate
-def test_client_invalid_token_format():
+def test_client_invalid_token_format(discovery_json: dict):
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
     with pytest.raises(ChargePointBaseException):
         ChargePoint(username="test", password="demo", session_token="bad-token")
 
 
 @responses.activate
-def test_client_with_session_token(account_json: dict):
+def test_client_with_session_token(
+    discovery_json: dict, region: ChargePointDefaultRegion, account_json: dict
+):
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{region.accounts_endpoint}v1/driver/profile/user",
         status=200,
         json=account_json,
     )
@@ -91,16 +109,20 @@ def test_client_with_session_token(account_json: dict):
 
 
 @responses.activate
-def test_client_expired_session_token():
+def test_client_expired_session_token(
+    discovery_json: dict,
+    region: ChargePointDefaultRegion,
+):
     session_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{region.accounts_endpoint}v1/driver/profile/user",
         status=401,
     )
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v2/driver/profile/account/login",
+        f"{region.accounts_endpoint}v2/driver/profile/account/login",
         status=200,
         json={
             "user": {"userId": 1},
@@ -121,7 +143,7 @@ def test_client_expired_session_token():
 def test_client_logout_failed(authenticated_client: ChargePoint):
     responses.add(
         responses.POST,
-        "https://account.chargepoint.com/account/v1/driver/profile/account/logout",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/profile/account/logout",
         status=500,
     )
 
@@ -135,7 +157,7 @@ def test_client_logout_failed(authenticated_client: ChargePoint):
 def test_client_get_account(authenticated_client: ChargePoint, account_json: dict):
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/profile/user",
         status=200,
         json=account_json,
     )
@@ -148,7 +170,7 @@ def test_client_get_account(authenticated_client: ChargePoint, account_json: dic
 def test_client_get_account_failure(authenticated_client: ChargePoint):
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/profile/user",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/profile/user",
         status=500,
     )
 
@@ -164,7 +186,7 @@ def test_client_get_vehicles(
 ):
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/vehicle",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/vehicle",
         status=200,
         json=[electric_vehicle_json],
     )
@@ -178,7 +200,7 @@ def test_client_get_vehicles(
 def test_client_get_vehicles_failure(authenticated_client: ChargePoint):
     responses.add(
         responses.GET,
-        "https://account.chargepoint.com/account/v1/driver/vehicle",
+        f"{authenticated_client.region.accounts_endpoint}v1/driver/vehicle",
         status=500,
     )
 
@@ -192,7 +214,7 @@ def test_client_get_vehicles_failure(authenticated_client: ChargePoint):
 def test_client_get_home_chargers(authenticated_client: ChargePoint):
     responses.add(
         responses.POST,
-        V5_URL,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
         status=200,
         json={"get_pandas": {"device_ids": [1234567890]}},
     )
@@ -205,7 +227,11 @@ def test_client_get_home_chargers(authenticated_client: ChargePoint):
 
 @responses.activate
 def test_client_get_home_chargers_failure(authenticated_client: ChargePoint):
-    responses.add(responses.POST, V5_URL, status=500)
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
+        status=500,
+    )
 
     with pytest.raises(ChargePointCommunicationException) as exc:
         authenticated_client.get_home_chargers()
@@ -219,7 +245,7 @@ def test_client_get_home_charger_status(
 ):
     responses.add(
         responses.POST,
-        V5_URL,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
         status=200,
         json={"get_panda_status": home_charger_json},
     )
@@ -231,7 +257,11 @@ def test_client_get_home_charger_status(
 
 @responses.activate
 def test_client_get_home_charger_status_failure(authenticated_client: ChargePoint):
-    responses.add(responses.POST, V5_URL, status=500)
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
+        status=500,
+    )
 
     with pytest.raises(ChargePointCommunicationException) as exc:
         authenticated_client.get_home_charger_status(1234567890)
@@ -245,7 +275,7 @@ def test_client_get_home_charger_technical_info(
 ):
     responses.add(
         responses.POST,
-        V5_URL,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
         status=200,
         json={"get_station_technical_info": home_charger_tech_info_json},
     )
@@ -259,7 +289,11 @@ def test_client_get_home_charger_technical_info(
 def test_client_get_home_charger_technical_info_failure(
     authenticated_client: ChargePoint,
 ):
-    responses.add(responses.POST, V5_URL, status=500)
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.region.webservices_endpoint}mobileapi/v5",
+        status=500,
+    )
 
     with pytest.raises(ChargePointCommunicationException) as exc:
         authenticated_client.get_home_charger_technical_info(1234567890)
@@ -273,7 +307,7 @@ def test_client_get_user_charging_status(
 ):
     responses.add(
         responses.POST,
-        MAP_URL,
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": user_charging_status_json},
     )
@@ -290,7 +324,7 @@ def test_client_get_user_charging_status_not_charging(
 ):
     responses.add(
         responses.POST,
-        MAP_URL,
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": {}},
     )
@@ -302,7 +336,9 @@ def test_client_get_user_charging_status_not_charging(
 
 @responses.activate
 def test_client_get_get_user_charging_status_failure(authenticated_client: ChargePoint):
-    responses.add(responses.POST, MAP_URL, status=500)
+    responses.add(
+        responses.POST, f"{authenticated_client.region.mapcache_endpoint}v2", status=500
+    )
 
     with pytest.raises(ChargePointCommunicationException) as exc:
         authenticated_client.get_user_charging_status()
@@ -318,17 +354,17 @@ def test_start_session(
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    _add_start_function_responses()
+    _add_start_function_responses(region=authenticated_client.region)
 
     responses.add(
         responses.POST,
-        "https://mc.chargepoint.com/map-prod/v2",
+        f"{authenticated_client.region.mapcache_endpoint}v2",
         status=200,
         json={"user_status": user_charging_status_json},
     )
     responses.add(
         responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        f"{authenticated_client.region.mapcache_endpoint}v2?%7B%22user_id%22%3A1%2C%22charging_status"
         + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
         status=200,
         json={
