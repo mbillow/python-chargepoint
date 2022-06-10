@@ -139,7 +139,7 @@ class HomeChargerTechnicalInfo:
             last_ota_update=datetime.fromtimestamp(
                 json["last_ota_update"] / 1000, tz=timezone.utc
             ),
-            device_ip=json["device_ip"],
+            device_ip=json["device_ip"] if "device_ip" in json else "0.0.0.0",
             last_connected_at=datetime.fromtimestamp(
                 json["last_connected_at"] / 1000, tz=timezone.utc
             ),
