@@ -70,6 +70,13 @@ def test_home_charger_technical_info_from_json(
     assert tech.is_stop_charge_supported
 
 
+def test_home_charger_technical_info_without_ip(home_charger_tech_info_json):
+    del home_charger_tech_info_json["device_ip"]
+    tech = HomeChargerTechnicalInfo.from_json(home_charger_tech_info_json)
+
+    assert tech.device_ip is None
+
+
 def test_user_charging_status_from_json(timestamp, user_charging_status_json: dict):
     status = UserChargingStatus.from_json(user_charging_status_json)
 

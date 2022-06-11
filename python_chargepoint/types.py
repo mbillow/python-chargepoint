@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from .constants import _LOGGER
 
@@ -125,12 +125,15 @@ class HomeChargerTechnicalInfo:
     mac_address: str
     software_version: str
     last_ota_update: datetime
-    device_ip: str
+    device_ip: Optional[str]
     last_connected_at: datetime
     is_stop_charge_supported: bool
 
     @classmethod
     def from_json(cls, json: dict):
+        device_ip = json.get("device_ip")
+        if not device_ip:
+            _LOGGER.warning("Panda technical information did not include device IP.")
         return cls(
             model=json["model_number"],
             serial_number=json["serial_number"],
@@ -139,7 +142,7 @@ class HomeChargerTechnicalInfo:
             last_ota_update=datetime.fromtimestamp(
                 json["last_ota_update"] / 1000, tz=timezone.utc
             ),
-            device_ip=json["device_ip"],
+            device_ip=device_ip,
             last_connected_at=datetime.fromtimestamp(
                 json["last_connected_at"] / 1000, tz=timezone.utc
             ),
