@@ -36,7 +36,7 @@ def _modify(
     }
 
     response = client.session.post(
-        f"{client.region.accounts_endpoint}v1/driver/station/{action_path[action]}",
+        f"{client.global_config.endpoints.accounts}v1/driver/station/{action_path[action]}",
         json=request,
     )
 
@@ -65,7 +65,7 @@ def _modify(
             "action": f"{action}_session",
         }
         response = client.session.post(
-            f"{client.region.accounts_endpoint}v1/driver/station/session/ack",
+            f"{client.global_config.endpoints.accounts}v1/driver/station/session/ack",
             json=request,
         )
         if response.status_code == codes.ok:
@@ -163,7 +163,7 @@ class ChargingSession:
             # Today on "Every Internal API is Weird as Hell"...
             # I present to you: passing a JSON blob as a URL parameter.
             response = self._client.session.get(
-                f'{self._client.region.mapcache_endpoint}v2?{{"user_id":{self._client.user_id},"charging_status":{{'
+                f'{self._client.global_config.endpoints.mapcache}v2?{{"user_id":{self._client.user_id},"charging_status":{{'
                 f'"mfhs":{{}},"session_id":{self.session_id}}}}} '
             )
 

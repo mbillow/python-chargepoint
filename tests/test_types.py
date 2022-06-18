@@ -40,6 +40,15 @@ def test_account_from_json(account_json: dict):
     assert acct.account_balance.currency == "USD"
 
 
+def test_account_from_json_no_phone_country(account_json: dict):
+    del account_json["user"]["phoneCountryId"]
+    del account_json["user"]["phone"]
+
+    acct = ChargePointAccount.from_json(account_json)
+    assert acct.user.phone_country_id is None
+    assert acct.user.phone is None
+
+
 def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: dict):
     home = HomeChargerStatus.from_json(charger_id=1, json=home_charger_json)
 

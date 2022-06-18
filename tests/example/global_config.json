@@ -1,0 +1,797 @@
+{
+    "endPoints": {
+        "payment_java_endpoint": {
+            "value": "https://payments.chargepoint.com/payment/",
+            "dataDome": true
+        },
+        "payment_php_endpoint": {
+            "value": "https://payment.chargepoint.com/",
+            "dataDome": true
+        },
+        "portal_domain_endpoint": {
+            "value": "https://na.chargepoint.com/",
+            "dataDome": true
+        },
+        "portal_subdomain": {
+            "value": "na",
+            "dataDome": true
+        },
+        "accounts_endpoint": {
+            "value": "https://account.chargepoint.com/account/",
+            "dataDome": true
+        },
+        "sso_endpoint": {
+            "value": "https://sso.chargepoint.com/api/",
+            "dataDome": true
+        },
+        "mapcache_endpoint": {
+            "value": "https://mc.chargepoint.com/map-prod/",
+            "dataDome": true
+        },
+        "websocket_endpoint": {
+            "value": "wss://publish.chargepoint.com:443/pub-prod/",
+            "dataDome": true
+        },
+        "panda_websocket_endpoint": {
+            "value": "wss://homecharger-na.chargepoint.com:443/ws-prod/panda/v1",
+            "dataDome": true
+        },
+        "webservices_endpoint": {
+            "value": "https://webservices.chargepoint.com/backend.php/",
+            "dataDome": true
+        }
+    },
+    "homeChargerConfig": {
+        "wifiTxPower": 30,
+        "installVideoUrl": "https://youtu.be/BSH8mEgrX6k",
+        "requestChargerUrl": "https://na.chargepoint.com/webview/get-home-charger",
+        "branding": {
+            "localizedProductName": "Chargepoint Home",
+            "localizedMarketingMessage": "Introducing our new smart and networked Level 2 EV charger.",
+            "productImageUrl": "https://mc.chargepoint.com/images/home/NA/ic_panda_photo.png",
+            "productWebPageUrl": "https://www.chargepoint.com/app/drivers/home/",
+            "installVideoUrl": "https://youtu.be/BSH8mEgrX6k",
+            "sku": "CPH25"
+        },
+        "activationURL": {
+            "path": "/ws-prod/panda/v1",
+            "port": 443,
+            "subdomain": "homecharger-na"
+        },
+        "powerSources": [
+            {
+                "type": "PLUG",
+                "amps": 0
+            },
+            {
+                "type": "HARD_WIRED",
+                "amps": 20
+            },
+            {
+                "type": "HARD_WIRED",
+                "amps": 40
+            }
+        ]
+    },
+    "regionalHomeChargers": [
+        {
+            "modelFamily": "CPH25",
+            "models": [
+                "CPH25-P",
+                "CPH12",
+                "CPH12-P",
+                "CPH25"
+            ]
+        },
+        {
+            "modelFamily": "CPH50",
+            "models": [
+                "CPH50-NEMA6-50-L23",
+                "CPH50-NEMA6-50-L23-15118",
+                "CPH50-NEMA14-50-L23"
+            ]
+        }
+    ],
+    "currency": {
+        "code": "USD",
+        "name": "U.S. Dollars",
+        "cardCost": 4.95,
+        "symbol": "$",
+        "initialDeposit": 10.0,
+        "replenishmentThreshold": 5.0,
+        "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.usd",
+        "cmid": "cou226345290",
+        "maxDecimalPlaces": 4,
+        "walletPaymentParamsId": "USD",
+        "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3LfM57wPBHfFrD+/XFIctsjJx7LDMNObNieoB1ieQgkqjB5EQ7G+572B9GxgVHrcr1i1yGpaGb/8ew9Ug0mNNA==",
+        "ellipticCurvePoint": "BNy3zOe8DwR3xaw/v1xSHLbIyceywzDTmzYnqAdYnkIJKoweREOxvue9gfRsYFR63K9YtchqWhm//HsPVINJjTQ="
+    },
+    "supportedCurrencies": [
+        {
+            "code": "AUD",
+            "name": "Australian Dollars",
+            "cardCost": 0.0,
+            "symbol": "$",
+            "initialDeposit": 25.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": null,
+            "cmid": "wfgchargepoint",
+            "maxDecimalPlaces": 4,
+            "walletPaymentParamsId": "AUD",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAES8BujueZIv1vK07pulfd7ei+OEw6trkKLsAcftNYyD3oQgJcElmpDYpmrRxSELVKWaiRHptVTrpWzC1ihGz3JA==",
+            "ellipticCurvePoint": "BEvAbo7nmSL9bytO6bpX3e3ovjhMOra5Ci7AHH7TWMg96EICXBJZqQ2KZq0cUhC1SlmokR6bVU66VswtYoRs9yQ="
+        },
+        {
+            "code": "CAD",
+            "name": "Canadian Dollars",
+            "cardCost": 4.95,
+            "symbol": "$",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 5.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.cad",
+            "cmid": "wfgchargepointcanada",
+            "maxDecimalPlaces": 4,
+            "walletPaymentParamsId": "CAD",
+            "publicKey": "",
+            "ellipticCurvePoint": ""
+        },
+        {
+            "code": "CHF",
+            "name": "Swiss Franc",
+            "cardCost": 4.95,
+            "symbol": "CHF",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.chf",
+            "cmid": "wfgchargepointchf",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "CHF",
+            "publicKey": "",
+            "ellipticCurvePoint": ""
+        },
+        {
+            "code": "DKK",
+            "name": "Danish krone",
+            "cardCost": 4.95,
+            "symbol": "kr",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.dkk",
+            "cmid": "wfgchargepointdkk",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "DKK",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE61UN6JQrCMp2Eqo8dtR+ZEFzLmZ02wIfyVx2AL70UG34HEfvBqq727chZshoWZxCR9db2yNz0u6kmJ8j9Dms0A==",
+            "ellipticCurvePoint": "BOtVDeiUKwjKdhKqPHbUfmRBcy5mdNsCH8lcdgC+9FBt+BxH7waqu9u3IWbIaFmcQkfXW9sjc9LupJifI/Q5rNA="
+        },
+        {
+            "code": "EUR",
+            "name": "Euros",
+            "cardCost": 4.95,
+            "symbol": "€",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 5.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.eur",
+            "cmid": "wfgchargepointeur",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "EUR",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQswEj2g8PjiucSjoNIyQXddIrL1jvdWSObtqmcIWhXQqQE9OZ8k5xLQgM6p4Ocy6NESQAIrrvpK0016B/jLYCQ==",
+            "ellipticCurvePoint": "BELMBI9oPD44rnEo6DSMkF3XSKy9Y73Vkjm7apnCFoV0KkBPTmfJOcS0IDOqeDnMujREkACK676StNNegf4y2Ak="
+        },
+        {
+            "code": "GBP",
+            "name": "British Pound",
+            "cardCost": 4.95,
+            "symbol": "£",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 5.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.gbp",
+            "cmid": "wfgchargepointgbp",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "GBP",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZbFbhquzVky3Eig78EN+xNv8hG45ExtEGYasvIiJ7IQTzUoH0upr4ZGoa+mA7EIolardIDQa8IgvYBhos2fBYw==",
+            "ellipticCurvePoint": "BGWxW4ars1ZMtxIoO/BDfsTb/IRuORMbRBmGrLyIieyEE81KB9Lqa+GRqGvpgOxCKJWq3SA0GvCIL2AYaLNnwWM="
+        },
+        {
+            "code": "ILS",
+            "name": "Israeli new shekel",
+            "cardCost": 4.95,
+            "symbol": "?",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.ils",
+            "cmid": "wfgchargepointils",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "ILS",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEBKLXbVgMGlPXbwB9p7DRAKmfC2pLsYbdqnUkBgknaoFiMN5TYWC6ZlgpFGG+4tTmQcKZbyB0esJNirK/OuItHQ==",
+            "ellipticCurvePoint": "BASi121YDBpT128Afaew0QCpnwtqS7GG3ap1JAYJJ2qBYjDeU2FgumZYKRRhvuLU5kHCmW8gdHrCTYqyvzriLR0="
+        },
+        {
+            "code": "MXN",
+            "name": "Mexican Pesos",
+            "cardCost": 95.0,
+            "symbol": "$",
+            "initialDeposit": 200.0,
+            "replenishmentThreshold": 100.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.nonusd",
+            "cmid": "wfgchargepoint",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "MXN",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAES8BujueZIv1vK07pulfd7ei+OEw6trkKLsAcftNYyD3oQgJcElmpDYpmrRxSELVKWaiRHptVTrpWzC1ihGz3JA==",
+            "ellipticCurvePoint": "BEvAbo7nmSL9bytO6bpX3e3ovjhMOra5Ci7AHH7TWMg96EICXBJZqQ2KZq0cUhC1SlmokR6bVU66VswtYoRs9yQ="
+        },
+        {
+            "code": "NOK",
+            "name": "Norwegian krone",
+            "cardCost": 4.95,
+            "symbol": "kr",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.nok",
+            "cmid": "wfgchargepointnok",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "NOK",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEWTZwRz9cJBSVRumrfdR4tIvDiQmXYAMWT+VaxmmIeGOYP7XLGJFpXCVERs1zey8BttnZ42YNYV5/coh32ZWUqg==",
+            "ellipticCurvePoint": "BFk2cEc/XCQUlUbpq33UeLSLw4kJl2ADFk/lWsZpiHhjmD+1yxiRaVwlREbNc3svAbbZ2eNmDWFef3KId9mVlKo="
+        },
+        {
+            "code": "SEK",
+            "name": "Swedish krona",
+            "cardCost": 4.95,
+            "symbol": "kr",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 10.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.sek",
+            "cmid": "wfgchargepointsek",
+            "maxDecimalPlaces": 2,
+            "walletPaymentParamsId": "SEK",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaoInZI18OdNlGUWrzWbcOuZvN1py/qkS4MLxPEa/HBV4h0TZvrE3hvv4cDBXpWns+aDrmWtWgs6X5Qv1v80CHQ==",
+            "ellipticCurvePoint": "BGqCJ2SNfDnTZRlFq81m3Drmbzdacv6pEuDC8TxGvxwVeIdE2b6xN4b7+HAwV6Vp7Pmg65lrVoLOl+UL9b/NAh0="
+        },
+        {
+            "code": "USD",
+            "name": "U.S. Dollars",
+            "cardCost": 4.95,
+            "symbol": "$",
+            "initialDeposit": 10.0,
+            "replenishmentThreshold": 5.0,
+            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.usd",
+            "cmid": "cou226345290",
+            "maxDecimalPlaces": 4,
+            "walletPaymentParamsId": "USD",
+            "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3LfM57wPBHfFrD+/XFIctsjJx7LDMNObNieoB1ieQgkqjB5EQ7G+572B9GxgVHrcr1i1yGpaGb/8ew9Ug0mNNA==",
+            "ellipticCurvePoint": "BNy3zOe8DwR3xaw/v1xSHLbIyceywzDTmzYnqAdYnkIJKoweREOxvue9gfRsYFR63K9YtchqWhm//HsPVINJjTQ="
+        }
+    ],
+    "defaultCountry": {
+        "id": 233,
+        "name": "United States",
+        "originalName": "United States",
+        "code": "US",
+        "callingCode": 1,
+        "zoomBounds": {
+            "ne_lon": "-56.222767",
+            "sw_lat": "11.463275",
+            "ne_lat": "72.912376",
+            "sw_lon": "-165.993456"
+        },
+        "phoneFormat": "XXX XXX XXXX",
+        "signupPaymentOptional": true,
+        "signupPromptsRFID": false,
+        "signupPromptsTTC": true,
+        "trialDeviceId": 1806521
+    },
+    "supportedCountries": [
+        {
+            "id": 15,
+            "name": "Australia",
+            "originalName": "Australia",
+            "code": "AU",
+            "callingCode": 61,
+            "zoomBounds": {
+                "ne_lon": "179.63355",
+                "sw_lat": "-48.055499",
+                "ne_lat": "-9.006751",
+                "sw_lon": "109.31756"
+            },
+            "phoneFormat": "XXXX XXX XXX",
+            "signupPaymentOptional": false,
+            "signupPromptsRFID": false,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 16,
+            "name": "Austria",
+            "originalName": "Austria",
+            "code": "AT",
+            "callingCode": 43,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXXX XXXXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6468925
+        },
+        {
+            "id": 23,
+            "name": "Belgium",
+            "originalName": "Belgium",
+            "code": "BE",
+            "callingCode": 32,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXXX XX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 40,
+            "name": "Canada",
+            "originalName": "Canada",
+            "code": "CA",
+            "callingCode": 1,
+            "zoomBounds": {
+                "ne_lon": "-56.222767",
+                "sw_lat": "41.65131",
+                "ne_lat": "72.912376",
+                "sw_lon": "-141.00691"
+            },
+            "phoneFormat": "XXX XXX XXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": false,
+            "signupPromptsTTC": true,
+            "trialDeviceId": 337041
+        },
+        {
+            "id": 60,
+            "name": "Denmark",
+            "originalName": "Denmark",
+            "code": "DK",
+            "callingCode": 45,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XX XX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 75,
+            "name": "Finland",
+            "originalName": "Finland",
+            "code": "FI",
+            "callingCode": 358,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXXXXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 76,
+            "name": "France",
+            "originalName": "France",
+            "code": "FR",
+            "callingCode": 33,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XX XX XX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6468925
+        },
+        {
+            "id": 83,
+            "name": "Germany",
+            "originalName": "Germany",
+            "code": "DE",
+            "callingCode": 49,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXXXX XXXXXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6480345
+        },
+        {
+            "id": 107,
+            "name": "Ireland",
+            "originalName": "Ireland",
+            "code": "IE",
+            "callingCode": 353,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6493335
+        },
+        {
+            "id": 110,
+            "name": "Italy",
+            "originalName": "Italy",
+            "code": "IT",
+            "callingCode": 39,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 130,
+            "name": "Luxembourg",
+            "originalName": "Luxembourg",
+            "code": "LU",
+            "callingCode": 352,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 157,
+            "name": "Netherlands",
+            "originalName": "Netherlands",
+            "code": "NL",
+            "callingCode": 31,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XX XXXXXXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6499475
+        },
+        {
+            "id": 160,
+            "name": "New Zealand",
+            "originalName": "New Zealand",
+            "code": "NZ",
+            "callingCode": 64,
+            "zoomBounds": {
+                "ne_lon": "179.63355",
+                "sw_lat": "-48.055499",
+                "ne_lat": "-9.006751",
+                "sw_lon": "109.31756"
+            },
+            "phoneFormat": "XXX XXX XXXX",
+            "signupPaymentOptional": false,
+            "signupPromptsRFID": false,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 167,
+            "name": "Norway",
+            "originalName": "Norway",
+            "code": "NO",
+            "callingCode": 47,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XX XXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 179,
+            "name": "Portugal",
+            "originalName": "Portugal",
+            "code": "PT",
+            "callingCode": 351,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 206,
+            "name": "Spain",
+            "originalName": "Spain",
+            "code": "ES",
+            "callingCode": 34,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 6456125
+        },
+        {
+            "id": 212,
+            "name": "Sweden",
+            "originalName": "Sweden",
+            "code": "SE",
+            "callingCode": 46,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false
+        },
+        {
+            "id": 213,
+            "name": "Switzerland",
+            "originalName": "Switzerland",
+            "code": "CH",
+            "callingCode": 41,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXX XXX XX XX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 2776185
+        },
+        {
+            "id": 232,
+            "name": "United Kingdom",
+            "originalName": "United Kingdom",
+            "code": "GB",
+            "callingCode": 44,
+            "zoomBounds": {
+                "ne_lon": "50.738581",
+                "sw_lat": "12.066125",
+                "ne_lat": "71.685608",
+                "sw_lon": "-28.556870"
+            },
+            "phoneFormat": "XXXXX XXXXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": true,
+            "signupPromptsTTC": false,
+            "trialDeviceId": 2779605
+        },
+        {
+            "id": 233,
+            "name": "United States",
+            "originalName": "United States",
+            "code": "US",
+            "callingCode": 1,
+            "zoomBounds": {
+                "ne_lon": "-56.222767",
+                "sw_lat": "11.463275",
+                "ne_lat": "72.912376",
+                "sw_lon": "-165.993456"
+            },
+            "phoneFormat": "XXX XXX XXXX",
+            "signupPaymentOptional": true,
+            "signupPromptsRFID": false,
+            "signupPromptsTTC": true,
+            "trialDeviceId": 1806521
+        }
+    ],
+    "analytics": {
+        "mixpanel": {
+            "tokenAlias": "prod.us.mixpanel",
+            "piiAllowed": true,
+            "enabled": true
+        },
+        "crashlytics": {
+            "piiAllowed": true,
+            "enabled": true
+        },
+        "googleAnalytics": {
+            "piiAllowed": true,
+            "enabled": true
+        },
+        "answers": {
+            "piiAllowed": true,
+            "enabled": false
+        },
+        "firebase": {
+            "piiAllowed": true,
+            "enabled": true
+        },
+        "branch": {
+            "piiAllowed": true,
+            "enabled": true
+        }
+    },
+    "localizedResources": {
+        "homeOperation": {
+            "uri": "https://www.chargepoint.com/app/products/home/general/"
+        },
+        "homeLearnMore": {
+            "uri": "https://www.chargepoint.com/app/drivers/home/"
+        },
+        "contactUs": {
+            "uri": "https://www.chargepoint.com/app/support/"
+        },
+        "homeTroubleshooting": {
+            "uri": "https://www.chargepoint.com/app/products/home/troubleshooting/"
+        },
+        "sendUsFeedback": {
+            "uri": "https://www.chargepoint.com/app/support/"
+        },
+        "privacyPolicy": {
+            "uri": "https://na.chargepoint.com/privacy_policy_mobile?instance=NA-US&country_id=233&locale=en"
+        },
+        "homeBuyingGuide": {
+            "uri": "https://www.chargepoint.com/app/drivers/home/"
+        },
+        "publicChargingFAQs": {
+            "uri": "https://www.chargepoint.com/app/support/driver-faq/"
+        },
+        "reportAProblem": {
+            "uri": ""
+        },
+        "termsAndConditions": {
+            "uri": "https://na.chargepoint.com/terms_mobile?instance=NA-US&country_id=233&locale=en"
+        }
+    },
+    "filters": {
+        "powerLevelTypes": [
+            {
+                "name": "connector_l1",
+                "displayName": "AC - Wall Outlet",
+                "externalPortId": [
+                    7,
+                    9
+                ],
+                "type": "AC"
+            },
+            {
+                "name": "connector_l2",
+                "displayName": "AC - J1772",
+                "externalPortId": [
+                    1,
+                    91
+                ],
+                "type": "AC"
+            },
+            {
+                "name": "connector_l2_nema_1450",
+                "displayName": "AC - NEMA 14-50",
+                "externalPortId": [
+                    13
+                ],
+                "type": "AC"
+            },
+            {
+                "name": "connector_l2_tesla",
+                "displayName": "Tesla Destination Charger",
+                "externalPortId": [
+                    19
+                ],
+                "type": "AC"
+            },
+            {
+                "name": "connector_chademo",
+                "displayName": "DC Fast - CHAdeMO",
+                "externalPortId": [
+                    3,
+                    21
+                ],
+                "type": "DC"
+            },
+            {
+                "name": "connector_combo",
+                "displayName": "DC Fast - Combo",
+                "externalPortId": [
+                    15,
+                    11,
+                    31,
+                    41
+                ],
+                "type": "DC"
+            },
+            {
+                "name": "connector_tesla",
+                "displayName": "SuperCharger - Tesla",
+                "externalPortId": [
+                    51
+                ],
+                "type": "DC"
+            }
+        ],
+        "networks": [
+            {
+                "name": "network_bchydro",
+                "displayName": "BC Hydro"
+            },
+            {
+                "name": "network_blink",
+                "displayName": "Blink"
+            },
+            {
+                "name": "network_chargepoint",
+                "displayName": "ChargePoint"
+            },
+            {
+                "name": "network_evconnect",
+                "displayName": "EV Connect"
+            },
+            {
+                "name": "network_evgo",
+                "displayName": "EVgo"
+            },
+            {
+                "name": "network_flo",
+                "displayName": "FLO"
+            },
+            {
+                "name": "network_greenlots",
+                "displayName": "Greenlots"
+            },
+            {
+                "name": "network_semacharge",
+                "displayName": "SemaCharge"
+            }
+        ]
+    },
+    "region": "NA-US",
+    "userAgreements": [],
+    "responseTTL": 43200000
+}

@@ -1,10 +1,11 @@
+import json
 from datetime import datetime, timezone
 
 import pytest
 import responses
 
 from python_chargepoint import ChargePoint
-from python_chargepoint.types import ChargePointDefaultRegion
+from python_chargepoint.global_config import ChargePointGlobalConfiguration
 from python_chargepoint.constants import DISCOVERY_API
 
 
@@ -14,80 +15,9 @@ def timestamp() -> datetime:
 
 
 @pytest.fixture(scope="session")
-def discovery_json():
-    return {
-        "currency": {
-            "cardCost": 4.95,
-            "cmid": "wfgchargepointcanada",
-            "code": "USD",
-            "ellipticCurvePoint": "",
-            "initialDeposit": 10.0,
-            "maxDecimalPlaces": 4,
-            "merchantId": "merchant.com.coulomb.ChargePoint.cybersource.usd",
-            "name": "U.S. Dollars",
-            "publicKey": "",
-            "replenishmentThreshold": 5.0,
-            "symbol": "$",
-            "walletPaymentParamsId": "USD",
-        },
-        "defaultCountry": {
-            "callingCode": 1,
-            "code": "US",
-            "id": 40,
-            "name": "United States",
-            "originalName": "United States",
-            "phoneFormat": "XXX XXX XXXX",
-            "signupPaymentOptional": True,
-            "signupPromptsRFID": False,
-            "signupPromptsTTC": True,
-            "trialDeviceId": 337041,
-            "zoomBounds": {
-                "ne_lat": "72.912376",
-                "ne_lon": "-56.222767",
-                "sw_lat": "41.65131",
-                "sw_lon": "-141.00691",
-            },
-        },
-        "endPoints": {
-            "accounts_endpoint": {
-                "dataDome": True,
-                "value": "https://account.chargepoint.com/account/",
-            },
-            "mapcache_endpoint": {
-                "dataDome": True,
-                "value": "https://mc.chargepoint.com/map-prod/",
-            },
-            "panda_websocket_endpoint": {
-                "dataDome": True,
-                "value": "wss://homecharger.chargepoint.com:443/ws-prod/panda/v1",
-            },
-            "payment_java_endpoint": {
-                "dataDome": True,
-                "value": "https://payments.chargepoint.com/payment/",
-            },
-            "payment_php_endpoint": {
-                "dataDome": True,
-                "value": "https://payment.chargepoint.com/",
-            },
-            "portal_domain_endpoint": {
-                "dataDome": True,
-                "value": "https://chargepoint.com/",
-            },
-            "portal_subdomain": {"dataDome": True, "value": ""},
-            "sso_endpoint": {
-                "dataDome": True,
-                "value": "https://sso.chargepoint.com/api/",
-            },
-            "webservices_endpoint": {
-                "dataDome": True,
-                "value": "https://webservices.chargepoint.com/backend.php/",
-            },
-            "websocket_endpoint": {
-                "dataDome": True,
-                "value": "wss://publish.chargepoint.com:443/pub-prod/",
-            },
-        },
-    }
+def global_config_json():
+    with open("tests/example/global_config.json") as file:
+        return json.load(file)
 
 
 @pytest.fixture
@@ -110,14 +40,14 @@ def user_charging_status_json(timestamp: datetime):
 
 
 @pytest.fixture(scope="session")
-def region(discovery_json: dict) -> ChargePointDefaultRegion:
-    return ChargePointDefaultRegion.from_json(discovery_json)
+def global_config(global_config_json) -> ChargePointGlobalConfiguration:
+    return ChargePointGlobalConfiguration.from_json(global_config_json)
 
 
 @pytest.fixture
 @responses.activate
-def authenticated_client(discovery_json: dict) -> ChargePoint:
-    responses.add(responses.POST, DISCOVERY_API, status=200, json=discovery_json)
+def authenticated_client(global_config_json) -> ChargePoint:
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
     responses.add(
         responses.POST,
         "https://account.chargepoint.com/account/v2/driver/profile/account/login",

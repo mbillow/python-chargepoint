@@ -10,7 +10,6 @@ from .types import (
     HomeChargerStatus,
     HomeChargerTechnicalInfo,
     UserChargingStatus,
-    ChargePointDefaultRegion,
 )
 from .exceptions import (
     ChargePointLoginError,
@@ -18,6 +17,7 @@ from .exceptions import (
     ChargePointBaseException,
     ChargePointInvalidSession,
 )
+from .global_config import ChargePointGlobalConfiguration
 from .session import ChargingSession
 from .constants import _LOGGER, DISCOVERY_API
 
@@ -75,7 +75,7 @@ class ChargePoint:
         self._user_id = None
         self._logged_in = False
         self._session_token = None
-        self._region = self._discover_region(username)
+        self._global_config = self._get_configuration(username)
 
         if session_token:
             self._set_session_token(session_token)
@@ -109,8 +109,8 @@ class ChargePoint:
         return self._device_data
 
     @property
-    def region(self) -> ChargePointDefaultRegion:
-        return self._region
+    def global_config(self) -> ChargePointGlobalConfiguration:
+        return self._global_config
 
     def login(self, username: str, password: str) -> None:
         """
@@ -118,7 +118,9 @@ class ChargePoint:
         :param username: Account username
         :param password: Account password
         """
-        login_url = f"{self._region.accounts_endpoint}v2/driver/profile/account/login"
+        login_url = (
+            f"{self._global_config.endpoints.accounts}v2/driver/profile/account/login"
+        )
         headers = {
             "User-Agent": f"com.coulomb.ChargePoint/{self._app_version} CFNetwork/1329 Darwin/21.3.0"
         }
@@ -149,7 +151,7 @@ class ChargePoint:
 
     def logout(self):
         response = self._session.post(
-            f"{self._region.accounts_endpoint}v1/driver/profile/account/logout",
+            f"{self._global_config.endpoints.accounts}v1/driver/profile/account/logout",
             json={"deviceData": self._device_data},
         )
 
@@ -163,7 +165,7 @@ class ChargePoint:
         self._session_token = None
         self._logged_in = False
 
-    def _discover_region(self, username: str) -> ChargePointDefaultRegion:
+    def _get_configuration(self, username: str) -> ChargePointGlobalConfiguration:
         _LOGGER.debug("Discovering account region for username %s", username)
         request = {"deviceData": self._device_data, "username": username}
         response = self._session.post(DISCOVERY_API, json=request)
@@ -172,13 +174,14 @@ class ChargePoint:
                 response=response,
                 message="Failed to discover region for provided username!",
             )
-        region = ChargePointDefaultRegion.from_json(response.json())
+        config = ChargePointGlobalConfiguration.from_json(response.json())
         _LOGGER.debug(
-            "Discovered account region: %s (%s)",
-            region.country_name,
-            region.country_code,
+            "Discovered account region: %s / %s (%s)",
+            config.region,
+            config.default_country.name,
+            config.default_country.code,
         )
-        return region
+        return config
 
     def _set_session_token(self, session_token: str):
         try:
@@ -200,7 +203,7 @@ class ChargePoint:
     def get_account(self) -> ChargePointAccount:
         _LOGGER.debug("Getting ChargePoint Account Details")
         response = self._session.get(
-            f"{self._region.accounts_endpoint}v1/driver/profile/user",
+            f"{self._global_config.endpoints.accounts}v1/driver/profile/user",
             params=self._device_query_params,
         )
 
@@ -221,7 +224,7 @@ class ChargePoint:
     def get_vehicles(self) -> List[ElectricVehicle]:
         _LOGGER.debug("Listing vehicles")
         response = self._session.get(
-            f"{self._region.accounts_endpoint}v1/driver/vehicle",
+            f"{self._global_config.endpoints.accounts}v1/driver/vehicle",
             params=self._device_query_params,
         )
 
@@ -243,7 +246,7 @@ class ChargePoint:
         _LOGGER.debug("Searching for registered pandas")
         get_pandas = {"user_id": self.user_id, "get_pandas": {"mfhs": {}}}
         response = self._session.post(
-            f"{self._region.webservices_endpoint}mobileapi/v5", json=get_pandas
+            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=get_pandas
         )
 
         if response.status_code != codes.ok:
@@ -273,7 +276,7 @@ class ChargePoint:
             "get_panda_status": {"device_id": charger_id, "mfhs": {}},
         }
         response = self._session.post(
-            f"{self._region.webservices_endpoint}mobileapi/v5", json=get_status
+            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=get_status
         )
 
         if response.status_code != codes.ok:
@@ -305,7 +308,8 @@ class ChargePoint:
         }
 
         response = self._session.post(
-            f"{self._region.webservices_endpoint}mobileapi/v5", json=get_tech_info
+            f"{self._global_config.endpoints.webservices}mobileapi/v5",
+            json=get_tech_info,
         )
 
         if response.status_code != codes.ok:
@@ -331,7 +335,7 @@ class ChargePoint:
         _LOGGER.debug("Checking account charging status")
         request = {"deviceData": self._device_data, "user_status": {"mfhs": {}}}
         response = self._session.post(
-            f"{self._region.mapcache_endpoint}v2", json=request
+            f"{self._global_config.endpoints.mapcache}v2", json=request
         )
 
         if response.status_code != codes.ok:

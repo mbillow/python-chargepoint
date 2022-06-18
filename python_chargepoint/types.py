@@ -37,8 +37,8 @@ class ChargePointUser:
     family_name: str
     full_name: str
     given_name: str
-    phone: str
-    phone_country_id: int
+    phone: Optional[str]
+    phone_country_id: Optional[int]
     user_id: int
     username: str
 
@@ -50,8 +50,11 @@ class ChargePointUser:
             family_name=json["familyName"],
             full_name=json["fullName"],
             given_name=json["givenName"],
-            phone=json["phone"],
-            phone_country_id=json["phoneCountryId"],
+            phone=json.get("phone"),
+            # This seems to be some internal country code.
+            # US is 40 and an account with no number doesn't
+            # have this attribute.
+            phone_country_id=json.get("phoneCountryId"),
             user_id=json["userId"],
             username=json["username"],
         )
@@ -238,49 +241,4 @@ class PowerUtility:
             id=json["id"],
             name=json["name"],
             plans=[PowerUtilityPlan.from_json(plan) for plan in json["plans"]],
-        )
-
-
-@dataclass
-class ChargePointDefaultRegion:
-    country_name: str
-    country_code: str
-
-    currency_code: str
-    currency_symbol: str
-    currency_name: str
-
-    accounts_endpoint: str
-    mapcache_endpoint: str
-    panda_websocket_endpoint: str
-    payment_java_endpoint: str
-    payment_php_endpoint: str
-    portal_domain_endpoint: str
-    portal_subdomain: str
-    sso_endpoint: str
-    webservices_endpoint: str
-    websocket_endpoint: str
-
-    @classmethod
-    def from_json(cls, json: dict):
-        country = json["defaultCountry"]
-        endpoints = json["endPoints"]
-        currency = json["currency"]
-
-        return cls(
-            country_name=country["name"],
-            country_code=country["code"],
-            currency_code=currency["code"],
-            currency_symbol=currency["symbol"],
-            currency_name=currency["name"],
-            accounts_endpoint=endpoints["accounts_endpoint"]["value"],
-            mapcache_endpoint=endpoints["mapcache_endpoint"]["value"],
-            panda_websocket_endpoint=endpoints["panda_websocket_endpoint"]["value"],
-            payment_java_endpoint=endpoints["payment_java_endpoint"]["value"],
-            payment_php_endpoint=endpoints["payment_php_endpoint"]["value"],
-            portal_domain_endpoint=endpoints["portal_domain_endpoint"]["value"],
-            portal_subdomain=endpoints["portal_subdomain"]["value"],
-            sso_endpoint=endpoints["sso_endpoint"]["value"],
-            webservices_endpoint=endpoints["webservices_endpoint"]["value"],
-            websocket_endpoint=endpoints["websocket_endpoint"]["value"],
         )
