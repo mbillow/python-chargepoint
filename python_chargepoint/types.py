@@ -93,7 +93,7 @@ class ChargePointAccount:
 @dataclass
 class HomeChargerStatus:
     charger_id: int
-    brand: str
+    brand: Optional[str]
     plugged_in: bool
     connected: bool
     charging_status: str  # "AVAILABLE", "CHARGING", "NOT_CHARGING"
@@ -107,17 +107,17 @@ class HomeChargerStatus:
     def from_json(cls, charger_id: int, json: dict):
         return cls(
             charger_id=charger_id,
-            brand=json["brand"],
-            plugged_in=json["is_plugged_in"],
-            connected=json["is_connected"],
-            charging_status=json["charging_status"],
+            brand=json.get("brand", ""),
+            plugged_in=json.get("is_plugged_in", False),
+            connected=json.get("is_connected", False),
+            charging_status=json.get("charging_status", ""),
             last_connected_at=datetime.fromtimestamp(
-                json["last_connected_at"] / 1000, tz=timezone.utc
+                json.get("last_connected_at", 0) / 1000, tz=timezone.utc
             ),
-            reminder_enabled=json["is_reminder_enabled"],
-            reminder_time=json["plug_in_reminder_time"],
-            model=json["model"],
-            mac_address=json["mac_address"],
+            reminder_enabled=json.get("is_reminder_enabled", False),
+            reminder_time=json.get("plug_in_reminder_time", ""),
+            model=json.get("model", ""),
+            mac_address=json.get("mac_address", "00:00:00:00:00:00"),
         )
 
 
@@ -136,7 +136,7 @@ class HomeChargerTechnicalInfo:
     def from_json(cls, json: dict):
         device_ip = json.get("device_ip")
         if not device_ip:
-            _LOGGER.warning("Panda technical information did not include device IP.")
+            _LOGGER.debug("Panda technical information did not include device IP.")
         return cls(
             model=json["model_number"],
             serial_number=json["serial_number"],
