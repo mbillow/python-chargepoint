@@ -51,7 +51,7 @@ def _modify(
         )
 
     action_status = response.json()
-    ack_id = action_status["ackId"]
+    ack_id = action_status.get("ackId")
 
     for i in range(max_retry):  # pragma: no cover
         _LOGGER.debug(
@@ -204,47 +204,47 @@ class ChargingSession:
         status = response.json()["charging_status"]
 
         self.start_time = datetime.fromtimestamp(
-            status["start_time"] / 1000, tz=timezone.utc
+            status.get("start_time") / 1000, tz=timezone.utc
         )
-        self.device_id = status["device_id"]
-        self.device_name = status["device_name"]
-        self.charging_state = status["current_charging"]
-        self.charging_time = status["charging_time"]
-        self.energy_kwh = status["energy_kwh"]
-        self.miles_added = status["miles_added"]
+        self.device_id = status.get("device_id", 0)
+        self.device_name = status.get("device_name", 0)
+        self.charging_state = status.get("current_charging", '')
+        self.charging_time = status.get("charging_time", 0)
+        self.energy_kwh = status.get("energy_kwh", 0.0)
+        self.miles_added = status.get("miles_added", 0.0)
         self.miles_added_per_hour = status.get("miles_added_per_hour", 0.0)
-        self.outlet_number = status["outlet_number"]
-        self.port_level = status["port_level"]
-        self.power_kw = status["power_kw"]
-        self.purpose = status["purpose"]
-        self.currency_iso_code = status["currency_iso_code"]
-        self.payment_completed = status["payment_completed"]
-        self.payment_type = status["payment_type"]
-        self.pricing_spec_id = status["pricing_spec_id"]
-        self.total_amount = status["total_amount"]
-        self.api_flag = status["api_flag"]
-        self.enable_stop_charging = status["enable_stop_charging"]
-        self.has_charging_receipt = status["has_charging_receipt"]
-        self.has_utility_info = status["has_utility_info"]
-        self.is_home_charger = status["is_home_charger"]
-        self.is_purpose_finalized = status["is_purpose_finalized"]
+        self.outlet_number = status.get("outlet_number", 0)
+        self.port_level = status.get("port_level", 0)
+        self.power_kw = status.get("power_kw", 0.0)
+        self.purpose = status.get("purpose", '')
+        self.currency_iso_code = status.get("currency_iso_code", '')
+        self.payment_completed = status.get("payment_completed", False)
+        self.payment_type = status.get("payment_type", '')
+        self.pricing_spec_id = status.get("pricing_spec_id", 0)
+        self.total_amount = status.get("total_amount", 0.0)
+        self.api_flag = status.get("api_flag", False)
+        self.enable_stop_charging = status.get("enable_stop_charging", False)
+        self.has_charging_receipt = status.get("has_charging_receipt", False)
+        self.has_utility_info = status.get("has_utility_info", False)
+        self.is_home_charger = status.get("is_home_charger", False)
+        self.is_purpose_finalized = status.get("is_purpose_finalized", False)
         self.last_update_data_timestamp = datetime.fromtimestamp(
-            status["last_update_data_timestamp"] / 1000, tz=timezone.utc
+            status.get("last_update_data_timestamp") / 1000, tz=timezone.utc
         )
-        self.stop_charge_supported = status["stop_charge_supported"]
-        self.company_id = status["company_id"]
-        self.company_name = status["company_name"]
-        self.latitude = status["lat"]
-        self.longitude = status["lon"]
-        self.address = status["address1"]
-        self.city = status["city"]
-        self.state_name = status["state_name"]
-        self.country = status["country"]
-        self.zipcode = status["zipcode"]
+        self.stop_charge_supported = status.get("stop_charge_supported", False)
+        self.company_id = status.get("company_id", 0)
+        self.company_name = status.get("company_name", '')
+        self.latitude = status.get("lat", 0.0)
+        self.longitude = status.get("lon", 0.0)
+        self.address = status.get("address1", '')
+        self.city = status.get("city", '')
+        self.state_name = status.get("state_name", '')
+        self.country = status.get("country", '')
+        self.zipcode = status.get("zipcode", '')
         self.update_data = [
-            ChargingSessionUpdate.from_json(update) for update in status["update_data"]
+            ChargingSessionUpdate.from_json(update) for update in status.get("update_data", [])
         ]
-        self.update_period = status["update_period"]
+        self.update_period = status.get("update_period", 0)
 
         self.utility = None
         utility = status.get("utility")

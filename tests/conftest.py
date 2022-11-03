@@ -192,6 +192,49 @@ def charging_status_json(timestamp: datetime) -> dict:
         },
     }
 
+@pytest.fixture
+def charging_status_partial_json(timestamp: datetime) -> dict:
+    return {
+        "start_time": timestamp.timestamp() * 1000,
+        "device_id": 1,
+        "device_name": "CP PUBLIC",
+        "current_charging": "CHARGING",
+        "charging_time": 1,
+        "energy_kwh": 1.1,
+        "miles_added": 1.1,
+        "miles_added_per_hour": 0.0,
+        "outlet_number": 1,
+        "port_level": 2,
+        "power_kw": 10.1,
+        "purpose": "PERSONAL",
+        "currency_iso_code": 1,
+        "payment_completed": True,
+        "payment_type": "CARD",
+        "total_amount": 0.0,
+        "api_flag": False,
+        "enable_stop_charging": True,
+        "has_charging_receipt": False,
+        "is_purpose_finalized": True,
+        "last_update_data_timestamp": timestamp.timestamp() * 1000,
+        "stop_charge_supported": True,
+        "company_id": 1,
+        "company_name": "CP",
+        "lat": 30.0,
+        "lon": 70.0,
+        "address1": "123 Main St.",
+        "city": "Pytest",
+        "state_name": "New York",
+        "country": "US",
+        "zipcode": "12345",
+        "update_data": [
+            {
+                "energy_kwh": 1.0,
+                "power_kw": 11.0,
+                "timestamp": timestamp.timestamp() * 1000,
+            }
+        ],
+        "update_period": 1
+    }
 
 @pytest.fixture
 @responses.activate

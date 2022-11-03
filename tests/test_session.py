@@ -244,3 +244,19 @@ def test_get_charging_session_no_utility(
 
     session = authenticated_client.get_charging_session(session_id=1)
     assert session.utility is None
+
+@responses.activate
+def test_get_charging_session_no_pricing_spec_id(
+    authenticated_client: ChargePoint, charging_status_partial_json: dict
+):
+
+    responses.add(
+        responses.GET,
+        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
+        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
+        status=200,
+        json={"charging_status": charging_status_partial_json},
+    )
+
+    session = authenticated_client.get_charging_session(session_id=1)
+    assert session.pricing_spec_id is 0
