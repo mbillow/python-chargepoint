@@ -259,4 +259,4 @@ def test_get_charging_session_no_pricing_spec_id(
     )
 
     session = authenticated_client.get_charging_session(session_id=1)
-    assert session.pricing_spec_id is None
+    assert session.pricing_spec_id is 0
