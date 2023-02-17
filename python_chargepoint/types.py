@@ -19,14 +19,14 @@ class ElectricVehicle:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            make=json["make"]["name"],
-            model=json["model"]["name"],
-            primary_vehicle=json["primaryVehicle"],
-            color=json["modelYearColor"]["colorName"],
-            image_url=json["modelYearColor"]["imageUrl"],
-            year=json["modelYear"]["year"],
-            charging_speed=json["modelYear"]["chargingSpeed"],
-            dc_charging_speed=json["modelYear"]["dcChargingSpeed"],
+            make=json.get("make", {}).get("name", ""),
+            model=json.get("model", {}).get("name", ""),
+            primary_vehicle=json.get("primaryVehicle", False),
+            color=json.get("modelYearColor", {}).get("colorName", ""),
+            image_url=json.get("modelYearColor", {}).get("imageUrl", ""),
+            year=json.get("modelYear", {}).get("year", 0),
+            charging_speed=json.get("modelYear", {}).get("chargingSpeed", 0),
+            dc_charging_speed=json.get("modelYear", {}).get("dcChargingSpeed", 0),
         )
 
 
@@ -45,18 +45,18 @@ class ChargePointUser:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            email=json["email"],
-            evatar_url=json["evatarUrl"],
-            family_name=json["familyName"],
-            full_name=json["fullName"],
-            given_name=json["givenName"],
+            email=json.get("email", ""),
+            evatar_url=json.get("evatarUrl", ""),
+            family_name=json.get("familyName", ""),
+            full_name=json.get("fullName", ""),
+            given_name=json.get("givenName", ""),
             phone=json.get("phone"),
             # This seems to be some internal country code.
             # US is 40 and an account with no number doesn't
             # have this attribute.
             phone_country_id=json.get("phoneCountryId"),
-            user_id=json["userId"],
-            username=json["username"],
+            user_id=json.get("userId", 0),
+            username=json.get("username", ""),
         )
 
 
@@ -69,12 +69,12 @@ class AccountBalance:
 
     @classmethod
     def from_json(cls, json: dict):
-        balance = json["balance"]
+        balance = json.get("balance", {})
         return cls(
-            account_number=json["accountNumber"],
-            account_state=json["accountState"],
-            amount=balance["amount"],
-            currency=balance["currency"],
+            account_number=json.get("accountNumber", ""),
+            account_state=json.get("accountState", ""),
+            amount=balance.get("amount", ""),
+            currency=balance.get("currency", ""),
         )
 
 
@@ -85,8 +85,8 @@ class ChargePointAccount:
 
     @classmethod
     def from_json(cls, json: dict):
-        user = ChargePointUser.from_json(json["user"])
-        balance = AccountBalance.from_json(json["accountBalance"])
+        user = ChargePointUser.from_json(json.get("user", {}))
+        balance = AccountBalance.from_json(json.get("accountBalance", {}))
         return cls(user=user, account_balance=balance)
 
 
@@ -134,22 +134,19 @@ class HomeChargerTechnicalInfo:
 
     @classmethod
     def from_json(cls, json: dict):
-        device_ip = json.get("device_ip")
-        if not device_ip:
-            _LOGGER.debug("Panda technical information did not include device IP.")
         return cls(
-            model=json["model_number"],
-            serial_number=json["serial_number"],
-            mac_address=json["wifi_mac"],
-            software_version=json["software_version"],
+            model=json.get("model_number", ""),
+            serial_number=json.get("serial_number", ""),
+            mac_address=json.get("wifi_mac", "00:00:00:00:00:00"),
+            software_version=json.get("software_version", "0.0.0.0"),
             last_ota_update=datetime.fromtimestamp(
-                json["last_ota_update"] / 1000, tz=timezone.utc
+                json.get("last_ota_update", 0) / 1000, tz=timezone.utc
             ),
-            device_ip=device_ip,
+            device_ip=json.get("device_ip"),
             last_connected_at=datetime.fromtimestamp(
-                json["last_connected_at"] / 1000, tz=timezone.utc
+                json.get("last_connected_at", 0) / 1000, tz=timezone.utc
             ),
-            is_stop_charge_supported=json["is_stop_charge_supported"],
+            is_stop_charge_supported=json.get("is_stop_charge_supported", False),
         )
 
 
@@ -163,10 +160,10 @@ class ChargePointStation:
     @classmethod
     def from_json(cls, json):
         return cls(
-            id=json["deviceId"],
-            name=json["name"],
-            latitude=json["lat"],
-            longitude=json["lon"],
+            id=json.get("deviceId", 0),
+            name=json.get("name", ""),
+            latitude=json.get("lat", 0.0),
+            longitude=json.get("lon", 0.0),
         )
 
 
@@ -188,11 +185,14 @@ class UserChargingStatus:
                 + "nature of the session API."
             )
         return cls(
-            session_id=status["sessionId"],
-            start_time=datetime.fromtimestamp(status["startTimeUTC"], tz=timezone.utc),
+            session_id=status.get("sessionId", 0),
+            start_time=datetime.fromtimestamp(
+                status.get("startTimeUTC", 0), tz=timezone.utc
+            ),
             state=state,
             stations=[
-                ChargePointStation.from_json(station) for station in status["stations"]
+                ChargePointStation.from_json(station)
+                for station in status.get("stations", [])
             ],
         )
 
@@ -206,9 +206,11 @@ class ChargingSessionUpdate:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            energy_kwh=json["energy_kwh"],
-            power_kw=json["power_kw"],
-            timestamp=datetime.fromtimestamp(json["timestamp"] / 1000, tz=timezone.utc),
+            energy_kwh=json.get("energy_kwh", 0.0),
+            power_kw=json.get("power_kw", 0.0),
+            timestamp=datetime.fromtimestamp(
+                json.get("timestamp", 0) / 1000, tz=timezone.utc
+            ),
         )
 
 
@@ -222,10 +224,10 @@ class PowerUtilityPlan:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            code=json["code"],
-            id=json["id"],
-            is_ev_plan=json["is_ev_plan"],
-            name=json["name"],
+            code=json.get("code", ""),
+            id=json.get("id", 0),
+            is_ev_plan=json.get("is_ev_plan", False),
+            name=json.get("name", ""),
         )
 
 
@@ -238,7 +240,7 @@ class PowerUtility:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            id=json["id"],
-            name=json["name"],
-            plans=[PowerUtilityPlan.from_json(plan) for plan in json["plans"]],
+            id=json.get("id", 0),
+            name=json.get("name", ""),
+            plans=[PowerUtilityPlan.from_json(plan) for plan in json.get("plans", [])],
         )

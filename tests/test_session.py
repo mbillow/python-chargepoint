@@ -245,6 +245,7 @@ def test_get_charging_session_no_utility(
     session = authenticated_client.get_charging_session(session_id=1)
     assert session.utility is None
 
+
 @responses.activate
 def test_get_charging_session_no_pricing_spec_id(
     authenticated_client: ChargePoint, charging_status_partial_json: dict
@@ -259,4 +260,4 @@ def test_get_charging_session_no_pricing_spec_id(
     )
 
     session = authenticated_client.get_charging_session(session_id=1)
-    assert session.pricing_spec_id is 0
+    assert session.pricing_spec_id == 0

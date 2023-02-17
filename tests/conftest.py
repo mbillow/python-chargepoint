@@ -192,6 +192,7 @@ def charging_status_json(timestamp: datetime) -> dict:
         },
     }
 
+
 @pytest.fixture
 def charging_status_partial_json(timestamp: datetime) -> dict:
     return {
@@ -233,8 +234,9 @@ def charging_status_partial_json(timestamp: datetime) -> dict:
                 "timestamp": timestamp.timestamp() * 1000,
             }
         ],
-        "update_period": 1
+        "update_period": 1,
     }
+
 
 @pytest.fixture
 @responses.activate
