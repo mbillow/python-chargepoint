@@ -18,10 +18,10 @@ class ChargePointZoomBounds:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            ne_longitude=float(json["ne_lon"]),
-            sw_latitude=float(json["sw_lat"]),
-            ne_latitude=float(json["ne_lat"]),
-            sw_longitude=float(json["sw_lon"]),
+            ne_longitude=float(json.get("ne_lon", 0.0)),
+            sw_latitude=float(json.get("sw_lat", 0.0)),
+            ne_latitude=float(json.get("ne_lat", 0.0)),
+            sw_longitude=float(json.get("sw_lon", 0.0)),
         )
 
 
@@ -37,13 +37,17 @@ class ChargePointCountry:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            id=json["id"],
-            name=json["name"],
-            code=json["code"],
+            id=json.get("id", 0),
+            name=json.get("name", ""),
+            code=json.get("code", ""),
             calling_code=json.get("callingCode", 1),
-            phone_format=json["phoneFormat"],
-            zoom_bounds=ChargePointZoomBounds.from_json(json["zoomBounds"]),
+            phone_format=json.get("phoneFormat", ""),
+            zoom_bounds=ChargePointZoomBounds.from_json(json.get("zoomBounds", {})),
         )
+
+
+def _safe_get_endpoint(json: dict, endpoint_key: str) -> str:
+    return json.get(endpoint_key, {}).get("value", "")
 
 
 @dataclass
@@ -62,16 +66,16 @@ class ChargePointEndpoints:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            accounts=json["accounts_endpoint"]["value"],
-            mapcache=json["mapcache_endpoint"]["value"],
-            panda_websocket=json["panda_websocket_endpoint"]["value"],
-            payment_java=json["payment_java_endpoint"]["value"],
-            payment_php=json["payment_php_endpoint"]["value"],
-            portal_domain=json["portal_domain_endpoint"]["value"],
-            portal_subdomain=json["portal_subdomain"]["value"],
-            sso=json["sso_endpoint"]["value"],
-            webservices=json["webservices_endpoint"]["value"],
-            websocket=json["websocket_endpoint"]["value"],
+            accounts=_safe_get_endpoint(json, "accounts_endpoint"),
+            mapcache=_safe_get_endpoint(json, "mapcache_endpoint"),
+            panda_websocket=_safe_get_endpoint(json, "panda_websocket_endpoint"),
+            payment_java=_safe_get_endpoint(json, "payment_java_endpoint"),
+            payment_php=_safe_get_endpoint(json, "payment_php_endpoint"),
+            portal_domain=_safe_get_endpoint(json, "portal_domain_endpoint"),
+            portal_subdomain=_safe_get_endpoint(json, "portal_subdomain"),
+            sso=_safe_get_endpoint(json, "sso_endpoint"),
+            webservices=_safe_get_endpoint(json, "webservices_endpoint"),
+            websocket=_safe_get_endpoint(json, "websocket_endpoint"),
         )
 
 
@@ -88,13 +92,13 @@ class ChargePointCurrency:
     @classmethod
     def from_json(cls, json: dict):
         return cls(
-            code=json["code"],
-            name=json["name"],
-            card_cost=json["cardCost"],
-            symbol=json["symbol"],
-            initial_deposit=json["initialDeposit"],
-            replenishment_threshold=json["replenishmentThreshold"],
-            max_decimal_places=json["maxDecimalPlaces"],
+            code=json.get("code", ""),
+            name=json.get("name", ""),
+            card_cost=json.get("cardCost", 0.0),
+            symbol=json.get("symbol", ""),
+            initial_deposit=json.get("initialDeposit", 0.0),
+            replenishment_threshold=json.get("replenishmentThreshold", 0.0),
+            max_decimal_places=json.get("maxDecimalPlaces", 0),
         )
 
 
@@ -112,20 +116,20 @@ class ChargePointGlobalConfiguration:
 
     @classmethod
     def from_json(cls, json: dict):
-        default_ctr = ChargePointCountry.from_json(json["defaultCountry"])
+        default_ctr = ChargePointCountry.from_json(json.get("defaultCountry", {}))
         supported_ctr = [
             ChargePointCountry.from_json(country)
             for country in json.get("supportedCountries", [])
         ]
-        default_cur = ChargePointCurrency.from_json(json["currency"])
+        default_cur = ChargePointCurrency.from_json(json.get("currency", {}))
         supported_cur = [
             ChargePointCurrency.from_json(currency)
             for currency in json.get("supportedCurrencies", [])
         ]
-        epts = ChargePointEndpoints.from_json(json["endPoints"])
+        epts = ChargePointEndpoints.from_json(json.get("endPoints", {}))
 
         return cls(
-            region=json["region"],
+            region=json.get("region", ""),
             default_country=default_ctr,
             supported_countries=supported_ctr,
             default_currency=default_cur,
