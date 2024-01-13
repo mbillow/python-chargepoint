@@ -1,6 +1,7 @@
 from uuid import uuid4
 from typing import List, Optional
 from functools import wraps
+from time import sleep
 
 from requests import Session, codes, post
 
@@ -356,6 +357,48 @@ class ChargePoint:
         _LOGGER.debug("Raw status: %s", status)
 
         return UserChargingStatus.from_json(status["user_status"])
+
+    @_require_login
+    def set_amperage_limit(self, charger_id: int, amperage_limit: int, max_retry: int = 5) -> None:
+        _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
+        request = {"deviceData": self._device_data, "chargeAmperageLimit": amperage_limit}
+        response = self._session.post(
+            f"{self._global_config.endpoints.internal_api}/driver/charger/{charger_id}/config/v1/charge-amperage-limit",
+            json=request
+        )
+
+        if response.status_code != codes.ok:
+            _LOGGER.error(
+                "Failed to set amperage limit! status_code=%s err=%s",
+                response.status_code,
+                response.text,
+            )
+            raise ChargePointCommunicationException(
+                response=response, message="Failed to set amperage limit."
+            )
+        status = response.json()
+        # The API can return 200 but still have a failure status.
+        if status["status"] != "success":
+            message = status.get("message", "empty message")
+            _LOGGER.error(
+                "Failed to set amperage limit! status=%s err=%s",
+                status["status"],
+                message,
+            )
+            raise ChargePointCommunicationException(
+                response=response, message=f"Failed to set amperage limit: {message}"
+            )
+
+        # This is eventually consistent so we wait until the new limit is reflected.
+        for _ in range(1, max_retry):  # pragma: no cover
+            charger_status = self.get_home_charger_status(charger_id)
+            if charger_status.amperage_limit == amperage_limit:
+                return
+            sleep(1)
+
+        raise ChargePointCommunicationException(
+            response=response, message="New amperage limit did not persist to charger after retries"
+        )
 
     @_require_login
     def get_charging_session(self, session_id: int) -> ChargingSession:

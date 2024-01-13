@@ -53,6 +53,7 @@ def _safe_get_endpoint(json: dict, endpoint_key: str) -> str:
 @dataclass
 class ChargePointEndpoints:
     accounts: str
+    internal_api: str
     mapcache: str
     panda_websocket: str
     payment_java: str
@@ -67,6 +68,7 @@ class ChargePointEndpoints:
     def from_json(cls, json: dict):
         return cls(
             accounts=_safe_get_endpoint(json, "accounts_endpoint"),
+            internal_api=_safe_get_endpoint(json, "internal_api_gateway_endpoint"),
             mapcache=_safe_get_endpoint(json, "mapcache_endpoint"),
             panda_websocket=_safe_get_endpoint(json, "panda_websocket_endpoint"),
             payment_java=_safe_get_endpoint(json, "payment_java_endpoint"),

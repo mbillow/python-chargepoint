@@ -44,7 +44,9 @@ for charger_id in chargers:
 #   reminder_enabled=False, 
 #   reminder_time='21:00', 
 #   model='CPH50-NEMA6-50-L23', 
-#   mac_address='0024B10000012345')
+#   mac_address='0024B10000012345',
+#   amperage_limit=25,
+#   possible_amperage_limits=[20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32])
 ```
 
 ### Account Charging Status and Session
@@ -164,4 +166,21 @@ home_flex = client.get_home_charger_status(home_flex_id)
 
 if home_flex.charging_status == "AVAILABLE":
     session = client.start_charging_session(home_flex_id)
+```
+
+#### Setting the amperage limit
+
+```python
+from python_chargepoint import ChargePoint
+
+client = ChargePoint(username="user", password="password")
+home_flex_id = client.get_home_chargers()[0]
+
+# Print out valid amperage values.
+print(client.get_home_charger_status(home_flex_id).possible_amperage_limits)
+# [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+
+client.set_amperage_limit(home_flex_id, 23)
+print(client.get_home_charger_status(home_flex_id).amperage_limit)
+# 23
 ```

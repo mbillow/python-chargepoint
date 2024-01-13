@@ -20,6 +20,10 @@
             "value": "https://account.chargepoint.com/account/",
             "dataDome": true
         },
+        "internal_api_gateway_endpoint": {
+            "value": "https://internal-api-us.chargepoint.com",
+            "dataDome": true
+        },
         "sso_endpoint": {
             "value": "https://sso.chargepoint.com/api/",
             "dataDome": true

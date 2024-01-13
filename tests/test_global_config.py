@@ -16,3 +16,4 @@ def test_global_configuration(global_config_json: dict):
     assert len(cfg.supported_currencies) == 11
 
     assert cfg.endpoints.accounts == "https://account.chargepoint.com/account/"
+    assert cfg.endpoints.internal_api == "https://internal-api-us.chargepoint.com"
