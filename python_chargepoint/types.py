@@ -102,6 +102,8 @@ class HomeChargerStatus:
     reminder_time: str
     model: str
     mac_address: str
+    amperage_limit: int
+    possible_amperage_limits: List[int]
 
     @classmethod
     def from_json(cls, charger_id: int, json: dict):
@@ -118,6 +120,8 @@ class HomeChargerStatus:
             reminder_time=json.get("plug_in_reminder_time", ""),
             model=json.get("model", ""),
             mac_address=json.get("mac_address", "00:00:00:00:00:00"),
+            amperage_limit=json.get("charge_amperage_setting", {}).get("charge_limit", 0),
+            possible_amperage_limits=json.get("charge_amperage_setting", {}).get("possible_charge_limit", 0),
         )
 
 

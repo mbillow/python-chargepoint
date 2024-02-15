@@ -323,6 +323,46 @@ def test_client_get_user_charging_status(
     assert status is not None
     assert status.session_id == 1
 
+@responses.activate
+def test_client_set_amperage_limit(authenticated_client: ChargePoint, home_charger_json: dict):
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.global_config.endpoints.internal_api}/driver/charger/1234567890/config/v1/charge-amperage-limit",
+        status=200,
+        json={"status": "success"},
+    )
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
+        status=200,
+        json={"get_panda_status": home_charger_json},
+    )
+
+    status = authenticated_client.set_amperage_limit(1234567890, 28)
+    assert status is None
+
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.global_config.endpoints.internal_api}/driver/charger/1234567890/config/v1/charge-amperage-limit",
+        status=500,
+    )
+
+    with pytest.raises(ChargePointCommunicationException) as exc:
+        authenticated_client.set_amperage_limit(1234567890, 0)
+
+    assert exc.value.response.status_code == 500
+
+    responses.add(
+        responses.POST,
+        f"{authenticated_client.global_config.endpoints.internal_api}/driver/charger/1234567890/config/v1/charge-amperage-limit",
+        status=200,
+        json={"status": "failure", "message": "invalid value"},
+    )
+
+    with pytest.raises(ChargePointCommunicationException) as exc:
+        status = authenticated_client.set_amperage_limit(1234567890, -6)
+
+    assert exc.value.message == "Failed to set amperage limit: invalid value"
 
 @responses.activate
 def test_client_get_user_charging_status_not_charging(
