@@ -1,0 +1,56 @@
+name: Publish Module to PyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10" ]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: install poetry
+        run: |
+          curl -O -sSL https://install.python-poetry.org/install-poetry.py
+          python install-poetry.py -y
+          echo "PATH=${HOME}/.poetry/bin:${PATH}" >> $GITHUB_ENV
+          rm install-poetry.py
+
+      - name: setup python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: "${{ matrix.python-version }}"
+          cache: "poetry"
+
+      - name: build release distributions
+        run: |
+          poetry env use ${{ matrix.python-version }}
+          poetry build
+
+      - name: upload dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+  pypi-publish:
+    runs-on: ubuntu-latest
+    needs:
+      - release-build
+    permissions:
+      id-token: write
+
+    steps:
+      - name: retrieve release distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: publish release distributions to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
