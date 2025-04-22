@@ -399,6 +399,31 @@ class ChargePoint:
         raise ChargePointCommunicationException(
             response=response, message="New amperage limit did not persist to charger after retries"
         )
+    
+    @_require_login
+    def restart_home_charger(self, charger_id: int) -> None:
+        _LOGGER.debug("Sending restart command for panda: %s", charger_id)
+        restart = {
+            "user_id": self.user_id,
+            "restart_panda": {"device_id": charger_id, "mfhs": {}},
+        }
+        response = self._session.post(
+            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=restart
+        )
+
+        if response.status_code != codes.ok:
+            _LOGGER.error(
+                "Failed to restart charger! status_code=%s err=%s",
+                response.status_code,
+                response.text,
+            )
+            raise ChargePointCommunicationException(
+                response=response, message="Failed to restart charger."
+            )
+
+        status = response.json()
+        _LOGGER.debug(status)
+        return
 
     @_require_login
     def get_charging_session(self, session_id: int) -> ChargingSession:
