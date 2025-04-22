@@ -394,17 +394,30 @@ def test_client_get_get_user_charging_status_failure(authenticated_client: Charg
     assert exc.value.response.status_code == 500
 
 @responses.activate
-def test_client_restart_home_charger(authenticated_client: ChargePoint):
+def test_client_restart_home_charger(authenticated_client: ChargePoint, home_charger_json: dict):
     responses.add(
         responses.POST,
-         f"{authenticated_client.global_config.endpoints.mapcache}mobileapi/v5",
+         f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
         status=200,
         json={"restart_panda": {}},
     )
 
-    status = authenticated_client.restart_home_charger()
+    status = authenticated_client.restart_home_charger(1234567890)
 
     assert status is None
+
+@responses.activate
+def test_client_restart_home_charger_failure(authenticated_client: ChargePoint, home_charger_json: dict):
+    responses.add(
+        responses.POST,
+         f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
+        status=500,
+    )
+
+    with pytest.raises(ChargePointCommunicationException) as exc:
+        authenticated_client.restart_home_charger(1234567890)
+
+    assert exc.value.response.status_code == 500
 
 @responses.activate
 def test_start_session(
