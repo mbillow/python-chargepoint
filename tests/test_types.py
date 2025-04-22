@@ -63,7 +63,21 @@ def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: d
     assert home.model == "HOME FLEX"
     assert home.mac_address == "00:00:00:00:00:00"
     assert home.amperage_limit == 28
-    assert home.possible_amperage_limits == [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+    assert home.possible_amperage_limits == [
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+    ]
 
 
 def test_home_charger_technical_info_from_json(

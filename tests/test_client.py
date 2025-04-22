@@ -323,8 +323,11 @@ def test_client_get_user_charging_status(
     assert status is not None
     assert status.session_id == 1
 
+
 @responses.activate
-def test_client_set_amperage_limit(authenticated_client: ChargePoint, home_charger_json: dict):
+def test_client_set_amperage_limit(
+    authenticated_client: ChargePoint, home_charger_json: dict
+):
     responses.add(
         responses.POST,
         f"{authenticated_client.global_config.endpoints.internal_api}/driver/charger/1234567890/config/v1/charge-amperage-limit",
@@ -364,6 +367,7 @@ def test_client_set_amperage_limit(authenticated_client: ChargePoint, home_charg
 
     assert exc.value.message == "Failed to set amperage limit: invalid value"
 
+
 @responses.activate
 def test_client_get_user_charging_status_not_charging(
     authenticated_client: ChargePoint,
@@ -393,11 +397,14 @@ def test_client_get_get_user_charging_status_failure(authenticated_client: Charg
 
     assert exc.value.response.status_code == 500
 
+
 @responses.activate
-def test_client_restart_home_charger(authenticated_client: ChargePoint, home_charger_json: dict):
+def test_client_restart_home_charger(
+    authenticated_client: ChargePoint, home_charger_json: dict
+):
     responses.add(
         responses.POST,
-         f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
+        f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
         status=200,
         json={"restart_panda": {}},
     )
@@ -406,11 +413,14 @@ def test_client_restart_home_charger(authenticated_client: ChargePoint, home_cha
 
     assert status is None
 
+
 @responses.activate
-def test_client_restart_home_charger_failure(authenticated_client: ChargePoint, home_charger_json: dict):
+def test_client_restart_home_charger_failure(
+    authenticated_client: ChargePoint, home_charger_json: dict
+):
     responses.add(
         responses.POST,
-         f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
+        f"{authenticated_client.global_config.endpoints.webservices}mobileapi/v5",
         status=500,
     )
 
@@ -418,6 +428,7 @@ def test_client_restart_home_charger_failure(authenticated_client: ChargePoint, 
         authenticated_client.restart_home_charger(1234567890)
 
     assert exc.value.response.status_code == 500
+
 
 @responses.activate
 def test_start_session(

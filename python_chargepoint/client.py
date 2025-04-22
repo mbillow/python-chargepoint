@@ -359,12 +359,17 @@ class ChargePoint:
         return UserChargingStatus.from_json(status["user_status"])
 
     @_require_login
-    def set_amperage_limit(self, charger_id: int, amperage_limit: int, max_retry: int = 5) -> None:
+    def set_amperage_limit(
+        self, charger_id: int, amperage_limit: int, max_retry: int = 5
+    ) -> None:
         _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
-        request = {"deviceData": self._device_data, "chargeAmperageLimit": amperage_limit}
+        request = {
+            "deviceData": self._device_data,
+            "chargeAmperageLimit": amperage_limit,
+        }
         response = self._session.post(
             f"{self._global_config.endpoints.internal_api}/driver/charger/{charger_id}/config/v1/charge-amperage-limit",
-            json=request
+            json=request,
         )
 
         if response.status_code != codes.ok:
@@ -397,9 +402,10 @@ class ChargePoint:
             sleep(1)
 
         raise ChargePointCommunicationException(
-            response=response, message="New amperage limit did not persist to charger after retries"
+            response=response,
+            message="New amperage limit did not persist to charger after retries",
         )
-    
+
     @_require_login
     def restart_home_charger(self, charger_id: int) -> None:
         _LOGGER.debug("Sending restart command for panda: %s", charger_id)

@@ -117,8 +117,22 @@ def home_charger_json(timestamp: datetime):
         "mac_address": "00:00:00:00:00:00",
         "charge_amperage_setting": {
             "charge_limit": 28,
-            "possible_charge_limit": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
-        }
+            "possible_charge_limit": [
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+            ],
+        },
     }
 
 
