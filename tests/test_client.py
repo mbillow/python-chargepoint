@@ -393,6 +393,18 @@ def test_client_get_get_user_charging_status_failure(authenticated_client: Charg
 
     assert exc.value.response.status_code == 500
 
+@responses.activate
+def test_client_restart_home_charger(authenticated_client: ChargePoint):
+    responses.add(
+        responses.POST,
+         f"{authenticated_client.global_config.endpoints.mapcache}mobileapi/v5",
+        status=200,
+        json={"restart_panda": {}},
+    )
+
+    status = authenticated_client.restart_home_charger()
+
+    assert status is None
 
 @responses.activate
 def test_start_session(
