@@ -261,7 +261,26 @@ class ChargePoint:
             )
 
         # {"get_pandas":{"device_ids":[12345678]}}
-        pandas = response.json()["get_pandas"]["device_ids"]
+        response_data = response.json()
+        
+        # Handle different possible response formats
+        if "get_pandas" in response_data:
+            if "device_ids" in response_data["get_pandas"]:
+                pandas = response_data["get_pandas"]["device_ids"]
+            else:
+                # Empty device_ids
+                pandas = []
+        elif "error" in response_data:
+            raise ChargePointCommunicationException(
+                response=response, 
+                message=f"API error: {response_data.get('error', 'Unknown error')}"
+            )
+        else:
+            _LOGGER.error(
+                "Unexpected API response format. Expected 'get_pandas' field."
+            )
+            # Return empty list instead of failing
+            pandas = []
         _LOGGER.debug(
             "Discovered %d connected pandas: %s",
             len(pandas),
@@ -292,7 +311,20 @@ class ChargePoint:
 
         status = response.json()
 
-        _LOGGER.debug(status)
+        if "get_panda_status" not in status:
+            _LOGGER.error(
+                "Unexpected API response format. Expected 'get_panda_status' field."
+            )
+            if "error" in status:
+                raise ChargePointCommunicationException(
+                    response=response,
+                    message=f"API error: {status.get('error', 'Unknown error')}"
+                )
+            # If we don't have the expected response, we can't create a valid status
+            raise ChargePointCommunicationException(
+                response=response,
+                message="Invalid response format for home charger status"
+            )
 
         return HomeChargerStatus.from_json(
             charger_id=charger_id, json=status["get_panda_status"]
