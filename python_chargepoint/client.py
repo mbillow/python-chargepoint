@@ -1,10 +1,9 @@
-from uuid import uuid4
 from typing import List, Optional
 from functools import wraps
 from time import sleep
 from importlib.metadata import version, PackageNotFoundError
 
-from requests import Session, codes, post
+from requests import Session, codes
 
 from .types import (
     ChargePointAccount,
@@ -55,12 +54,16 @@ class ChargePoint:
         self,
         username: str,
         password: str,
-        session_token: str = "",
+        session_token: Optional[str] = "",
     ):
         self._session = Session()
         self._user_id = None
         self._logged_in = False
-        self._session_token = None
+
+        self._session.headers = {
+                "user-agent": USER_AGENT,
+            }
+        
         self._global_config = self._get_configuration(username)
 
         if session_token:
@@ -69,6 +72,7 @@ class ChargePoint:
             try:
                 account: ChargePointAccount = self.get_account()
                 self._user_id = str(account.user.user_id)
+                self.refresh_session_token()
                 return
             except ChargePointCommunicationException:
                 _LOGGER.warning(
@@ -88,7 +92,7 @@ class ChargePoint:
 
     @property
     def session_token(self) -> Optional[str]:
-        return self._session_token
+        return self._get_session_token()
 
 
     @property
@@ -102,30 +106,27 @@ class ChargePoint:
         :param password: Account password
         """
         login_url = (
-            f"{self._global_config.endpoints.accounts}v2/driver/profile/account/login"
+            f"{self._global_config.endpoints.sso}v1/user/login"
         )
-        headers = {
-            "User-Agent": USER_AGENT
-        }
+        
         request = {
             "username": username,
             "password": password,
         }
         _LOGGER.debug("Attempting client login with user: %s", username)
-        login = post(login_url, json=request, headers=headers)
+        login = self._session.post(login_url, json=request)
         _LOGGER.debug(login.cookies.get_dict())
         _LOGGER.debug(login.headers)
 
         if login.status_code == codes.ok:
-            req = login.json()
-            self._user_id = req["user"]["userId"]
-            _LOGGER.debug("Authentication success! User ID: %s", self._user_id)
-            self._set_session_token(req["sessionId"])
             self._logged_in = True
+            account: ChargePointAccount = self.get_account()
+            self._user_id = str(account.user.user_id)
+            self.refresh_session_token()
             return
 
         _LOGGER.error(
-            "Failed to get account information! status_code=%s err=%s",
+            "Failed to get auth token! status_code=%s err=%s",
             login.status_code,
             login.text,
         )
@@ -133,7 +134,7 @@ class ChargePoint:
 
     def logout(self):
         response = self._session.post(
-            f"{self._global_config.endpoints.accounts}v1/driver/profile/account/logout",
+            f"{self._global_config.endpoints.sso}v1/user/logout",
         )
 
         if response.status_code != codes.ok:
@@ -141,9 +142,7 @@ class ChargePoint:
                 response=response, message="Failed to log out!"
             )
 
-        self._session.headers = {}
         self._session.cookies.clear_session_cookies()
-        self._session_token = None
         self._logged_in = False
 
     def _get_configuration(self, username: str) -> ChargePointGlobalConfiguration:
@@ -164,20 +163,36 @@ class ChargePoint:
         )
         return config
 
+    def refresh_session_token(self):
+        _LOGGER.debug("Requesting long lived token")
+        response = self._session.post(
+            f"{self._global_config.endpoints.webservices}mobileapi/v5", json={"user_id": self.user_id}
+        )
+
+        token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
+        if (response.status_code != codes.ok) or not token:
+            _LOGGER.error(
+                "Failed to get long lived token! status_code=%s err=%s",
+                response.status_code,
+                response.text,
+            )
+            raise ChargePointCommunicationException(
+                response=response, message="Failed to retrieve long lived token."
+            )
+
+    def _get_session_token(self) -> str:
+        out =''
+        token = [cookie for cookie in self._session.cookies if cookie.name == 'coulomb_sess']
+
+        if token:
+            out = token[0].value
+
+        return out
+
     def _set_session_token(self, session_token: str):
-        try:
-            self._session.headers = {
-                "cp-session-type": "CP_SESSION_TOKEN",
-                "cp-session-token": session_token,
-                # Data:       |------------------Token Data------------------||---?---||-Reg-|
-                # Session ID: rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US
-                "cp-region": session_token.split("#R")[1],
-                "user-agent": "ChargePoint/236 (iPhone; iOS 15.3; Scale/3.00)",
-            }
-        except IndexError:
+        if len(session_token) != 32:
             raise ChargePointBaseException("Invalid session token format.")
 
-        self._session_token = session_token
         self._session.cookies.set("coulomb_sess", session_token)
 
     @_require_login
