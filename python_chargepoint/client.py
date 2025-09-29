@@ -2,6 +2,7 @@ from uuid import uuid4
 from typing import List, Optional
 from functools import wraps
 from time import sleep
+from importlib.metadata import version, PackageNotFoundError
 
 from requests import Session, codes, post
 
@@ -21,7 +22,14 @@ from .exceptions import (
 from .global_config import ChargePointGlobalConfiguration
 from .session import ChargingSession
 from .constants import _LOGGER, DISCOVERY_API
+from . import __name__ as MODULE_NAME
 
+try:
+    MODULE_VERSION = version(MODULE_NAME)
+except PackageNotFoundError:
+    MODULE_VERSION = "unknown"
+
+USER_AGENT = f"{MODULE_NAME}/{MODULE_VERSION}"
 
 def _require_login(func):
     @wraps(func)
@@ -48,10 +56,8 @@ class ChargePoint:
         username: str,
         password: str,
         session_token: str = "",
-        app_version: str = "5.97.0",
     ):
         self._session = Session()
-        self._app_version = app_version
         self._user_id = None
         self._logged_in = False
         self._session_token = None
@@ -99,7 +105,7 @@ class ChargePoint:
             f"{self._global_config.endpoints.accounts}v2/driver/profile/account/login"
         )
         headers = {
-            "User-Agent": f"com.coulomb.ChargePoint/{self._app_version} CFNetwork/1329 Darwin/21.3.0"
+            "User-Agent": USER_AGENT
         }
         request = {
             "username": username,
