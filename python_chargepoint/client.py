@@ -23,16 +23,6 @@ from .session import ChargingSession
 from .constants import _LOGGER, DISCOVERY_API
 
 
-def _dict_for_query(device_data: dict) -> dict:
-    """
-    GET requests send device data as a nested object.
-    To avoid storing the device data block in two
-    formats, we are just going to compute the flat
-    dictionary.
-    """
-    return {f"deviceData[{key}]": value for key, value in device_data.items()}
-
-
 def _require_login(func):
     @wraps(func)
     def check_login(*args, **kwargs):
@@ -62,17 +52,6 @@ class ChargePoint:
     ):
         self._session = Session()
         self._app_version = app_version
-        self._device_data = {
-            "appId": "com.coulomb.ChargePoint",
-            "manufacturer": "Apple",
-            "model": "iPhone",
-            "notificationId": "",
-            "notificationIdType": "",
-            "type": "IOS",
-            "udid": str(uuid4()),
-            "version": app_version,
-        }
-        self._device_query_params = _dict_for_query(self._device_data)
         self._user_id = None
         self._logged_in = False
         self._session_token = None
@@ -105,9 +84,6 @@ class ChargePoint:
     def session_token(self) -> Optional[str]:
         return self._session_token
 
-    @property
-    def device_data(self) -> dict:
-        return self._device_data
 
     @property
     def global_config(self) -> ChargePointGlobalConfiguration:
@@ -126,7 +102,6 @@ class ChargePoint:
             "User-Agent": f"com.coulomb.ChargePoint/{self._app_version} CFNetwork/1329 Darwin/21.3.0"
         }
         request = {
-            "deviceData": self._device_data,
             "username": username,
             "password": password,
         }
@@ -153,7 +128,6 @@ class ChargePoint:
     def logout(self):
         response = self._session.post(
             f"{self._global_config.endpoints.accounts}v1/driver/profile/account/logout",
-            json={"deviceData": self._device_data},
         )
 
         if response.status_code != codes.ok:
@@ -168,7 +142,7 @@ class ChargePoint:
 
     def _get_configuration(self, username: str) -> ChargePointGlobalConfiguration:
         _LOGGER.debug("Discovering account region for username %s", username)
-        request = {"deviceData": self._device_data, "username": username}
+        request = {"username": username}
         response = self._session.post(DISCOVERY_API, json=request)
         if response.status_code != codes.ok:
             raise ChargePointCommunicationException(
@@ -205,7 +179,6 @@ class ChargePoint:
         _LOGGER.debug("Getting ChargePoint Account Details")
         response = self._session.get(
             f"{self._global_config.endpoints.accounts}v1/driver/profile/user",
-            params=self._device_query_params,
         )
 
         if response.status_code != codes.ok:
@@ -226,7 +199,6 @@ class ChargePoint:
         _LOGGER.debug("Listing vehicles")
         response = self._session.get(
             f"{self._global_config.endpoints.accounts}v1/driver/vehicle",
-            params=self._device_query_params,
         )
 
         if response.status_code != codes.ok:
@@ -334,7 +306,7 @@ class ChargePoint:
     @_require_login
     def get_user_charging_status(self) -> Optional[UserChargingStatus]:
         _LOGGER.debug("Checking account charging status")
-        request = {"deviceData": self._device_data, "user_status": {"mfhs": {}}}
+        request = {"user_status": {"mfhs": {}}}
         response = self._session.post(
             f"{self._global_config.endpoints.mapcache}v2", json=request
         )
@@ -364,7 +336,6 @@ class ChargePoint:
     ) -> None:
         _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
         request = {
-            "deviceData": self._device_data,
             "chargeAmperageLimit": amperage_limit,
         }
         response = self._session.post(
