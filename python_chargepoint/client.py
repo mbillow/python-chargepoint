@@ -382,12 +382,21 @@ class ChargePoint:
         self, charger_id: int, amperage_limit: int, max_retry: int = 5
     ) -> None:
         _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
+
+        headers = {
+                "cp-session-type": "CP_SESSION_TOKEN",
+                "cp-session-token": self._get_session_token(),
+                "cp-region": self._global_config.region,
+        }
+        headers.update(self._session.headers)
+
         request = {
             "chargeAmperageLimit": amperage_limit,
         }
         response = self._session.post(
             f"{self._global_config.endpoints.internal_api}/driver/charger/{charger_id}/config/v1/charge-amperage-limit",
             json=request,
+            headers=headers,
         )
 
         if response.status_code != codes.ok:
