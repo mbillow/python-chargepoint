@@ -173,7 +173,6 @@ class ChargePoint:
             f"{self._global_config.endpoints.portal_domain}index.php/nghelper/getSession", json={"user_id": self.user_id}
         )
 
-        # token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
         if (response.status_code != codes.ok):
             _LOGGER.error(
                 "Failed to get session! status_code=%s err=%s",
@@ -190,7 +189,6 @@ class ChargePoint:
             f"{self._global_config.endpoints.webservices}mobileapi/v5", json={"user_id": self.user_id}
         )
 
-        # token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
         if (response.status_code != codes.ok):
             _LOGGER.error(
                 "Failed to get long lived token! status_code=%s err=%s",
@@ -200,6 +198,8 @@ class ChargePoint:
             raise ChargePointCommunicationException(
                 response=response, message="Failed to retrieve long lived token."
             )
+        
+        self._session.cookies.clear(domain='')
 
     def _get_session_token(self) -> str:
         out =''
