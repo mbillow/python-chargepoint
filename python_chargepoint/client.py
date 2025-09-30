@@ -54,6 +54,7 @@ class ChargePoint:
         self,
         username: str,
         password: str,
+        auth_token: Optional[str] = "",
         session_token: Optional[str] = "",
     ):
         self._session = Session()
@@ -66,10 +67,12 @@ class ChargePoint:
         
         self._global_config = self._get_configuration(username)
 
-        if session_token:
+        if session_token or auth_token:
             self._set_session_token(session_token)
+            self._set_auth_token(auth_token)
             self._logged_in = True
             try:
+                self._get_initial_session_token()
                 account: ChargePointAccount = self.get_account()
                 self._user_id = str(account.user.user_id)
                 self.refresh_session_token()
@@ -120,6 +123,7 @@ class ChargePoint:
 
         if login.status_code == codes.ok:
             self._logged_in = True
+            self._get_initial_session_token()
             account: ChargePointAccount = self.get_account()
             self._user_id = str(account.user.user_id)
             self.refresh_session_token()
@@ -163,14 +167,31 @@ class ChargePoint:
         )
         return config
 
+    def _get_initial_session_token(self):
+        _LOGGER.debug("Requesting inital session token")
+        response = self._session.post(
+            f"{self._global_config.endpoints.portal_domain}index.php/nghelper/getSession", json={"user_id": self.user_id}
+        )
+
+        # token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
+        if (response.status_code != codes.ok):
+            _LOGGER.error(
+                "Failed to get session! status_code=%s err=%s",
+                response.status_code,
+                response.text,
+            )
+            raise ChargePointCommunicationException(
+                response=response, message="Failed to retrieve session."
+            )
+
     def refresh_session_token(self):
         _LOGGER.debug("Requesting long lived token")
         response = self._session.post(
             f"{self._global_config.endpoints.webservices}mobileapi/v5", json={"user_id": self.user_id}
         )
 
-        token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
-        if (response.status_code != codes.ok) or not token:
+        # token = [cookie for cookie in response.cookies if cookie.name == 'coulomb_sess']
+        if (response.status_code != codes.ok):
             _LOGGER.error(
                 "Failed to get long lived token! status_code=%s err=%s",
                 response.status_code,
@@ -190,10 +211,15 @@ class ChargePoint:
         return out
 
     def _set_session_token(self, session_token: str):
-        if len(session_token) != 32:
-            raise ChargePointBaseException("Invalid session token format.")
+        if session_token:
+            if len(session_token) != 32:
+                raise ChargePointBaseException("Invalid session token format.")
 
-        self._session.cookies.set("coulomb_sess", session_token)
+            self._session.cookies.set("coulomb_sess", session_token)
+
+    def _set_auth_token(self, auth_token: str):
+        if auth_token:
+            self._session.cookies.set("auth-session", auth_token)
 
     @_require_login
     def get_account(self) -> ChargePointAccount:
