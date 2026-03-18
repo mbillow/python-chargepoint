@@ -54,8 +54,8 @@ class ChargePoint:
         self,
         username: str,
         password: str,
-        auth_token: Optional[str] = "",
         session_token: Optional[str] = "",
+        auth_token: Optional[str] = "",
     ):
         self._session = Session()
         self._user_id = None
