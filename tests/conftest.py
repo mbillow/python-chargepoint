@@ -49,16 +49,33 @@ def global_config(global_config_json) -> ChargePointGlobalConfiguration:
 def authenticated_client(global_config_json) -> ChargePoint:
     responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
     responses.add(
-        responses.POST,
-        "https://account.chargepoint.com/account/v2/driver/profile/account/login",
+        responses.GET,
+        "https://account.chargepoint.com/account/v1/driver/profile/user",
         status=200,
         json={
-            "user": {"userId": 1},
-            "sessionId": "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
+            "user": {
+                "email": "test@pytest.com",
+                "evatarUrl": "https://pytest.com",
+                "familyName": "Test",
+                "fullName": "Test User",
+                "givenName": "Test",
+                "phone": "1234567890",
+                "phoneCountryId": 1,
+                "userId": 1,
+                "username": "test",
+            },
+            "accountBalance": {
+                "accountNumber": "1",
+                "accountState": "test",
+                "balance": {"amount": "0.0", "currency": "USD"},
+            },
         },
     )
 
-    return ChargePoint(username="test", password="demo")
+    return ChargePoint(
+        username="test",
+        coulomb_token="rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
+    )
 
 
 @pytest.fixture

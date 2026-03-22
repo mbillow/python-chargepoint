@@ -2,8 +2,10 @@ from typing import List, Optional
 from functools import wraps
 from time import sleep
 from importlib.metadata import version, PackageNotFoundError
+from urllib.parse import unquote
 
-from requests import Session, codes
+from requests import Session, codes, Response, post, get
+from requests.exceptions import RequestException, HTTPError, JSONDecodeError
 
 from .types import (
     ChargePointAccount,
@@ -15,8 +17,8 @@ from .types import (
 from .exceptions import (
     ChargePointLoginError,
     ChargePointCommunicationException,
-    ChargePointBaseException,
     ChargePointInvalidSession,
+    ChargePointDatadomeCaptcha,
 )
 from .global_config import ChargePointGlobalConfiguration
 from .session import ChargingSession
@@ -29,22 +31,18 @@ except PackageNotFoundError:
     MODULE_VERSION = "unknown"
 
 USER_AGENT = f"{MODULE_NAME}/{MODULE_VERSION}"
+COULOMB_SESSION = "coulomb_sess"
+SSO_SESSION = "auth-session"
+COOKIE_DOMAIN = ".chargepoint.com"
+
 
 def _require_login(func):
     @wraps(func)
     def check_login(*args, **kwargs):
-        self = args[0]
-        if not self._logged_in:
+        self: ChargePoint = args[0]
+        if self.coulomb_token is None:
             raise RuntimeError("Must login to use ChargePoint API")
-        try:
-            return func(*args, **kwargs)
-        except ChargePointCommunicationException as exc:
-            if exc.response.status_code == codes.unauthorized:
-                raise ChargePointInvalidSession(
-                    exc.response, "Session token has expired. Please login again!"
-                ) from exc
-            else:
-                raise
+        return func(*args, **kwargs)
 
     return check_login
 
@@ -53,37 +51,21 @@ class ChargePoint:
     def __init__(
         self,
         username: str,
-        password: str,
-        session_token: Optional[str] = "",
-        auth_token: Optional[str] = "",
+        coulomb_token: str = "",
     ):
         self._session = Session()
+        self._username = username
         self._user_id = None
-        self._logged_in = False
 
-        self._session.headers = {
-                "user-agent": USER_AGENT,
-            }
-        
+        self._session.headers.update({"user-agent": USER_AGENT})
+
         self._global_config = self._get_configuration(username)
 
-        if session_token or auth_token:
-            self._set_session_token(session_token)
-            self._set_auth_token(auth_token)
-            self._logged_in = True
-            try:
-                self._get_initial_session_token()
-                account: ChargePointAccount = self.get_account()
-                self._user_id = str(account.user.user_id)
-                self.refresh_session_token()
-                return
-            except ChargePointCommunicationException:
-                _LOGGER.warning(
-                    "Provided session token is expired, will attempt to re-login"
-                )
-                self._logged_in = False
+        if coulomb_token:
+            self._set_coulomb_token(coulomb_token)
 
-        self.login(username, password)
+        if coulomb_token:
+            self._init_account_parameters()
 
     @property
     def user_id(self) -> Optional[str]:
@@ -94,39 +76,87 @@ class ChargePoint:
         return self._session
 
     @property
-    def session_token(self) -> Optional[str]:
-        return self._get_session_token()
+    def coulomb_token(self) -> str | None:
+        return self._session.cookies.get("coulomb_sess", domain=COOKIE_DOMAIN)
 
+    def _set_coulomb_token(self, token: str):
+        if token:
+            parsed = unquote(token)
+            self._session.cookies.set("coulomb_sess", parsed, domain=".chargepoint.com")
+        else:
+            raise ValueError("empty session token provided")
 
     @property
     def global_config(self) -> ChargePointGlobalConfiguration:
         return self._global_config
 
-    def login(self, username: str, password: str) -> None:
+    def _request(self, method: str, url: str, **kwargs) -> Response:
+        _LOGGER.debug("[%s] %s", method, url)
+        r = self._session.request(method, url, **kwargs)
+        _LOGGER.debug("Status: %d", r.status_code)
+        _LOGGER.debug("Request Headers: %s", r.request.headers)
+        _LOGGER.debug("Response Headers: %s", r.headers)
+        try:
+            r.raise_for_status()
+        except HTTPError as e:
+            if e.response.status_code == codes.unauthorized:
+                raise ChargePointInvalidSession(
+                    e.response, "Session token has expired. Please login again!"
+                ) from e
+            if e.response.status_code == codes.forbidden:
+                try:
+                    body = e.response.json()
+                    if "url" in body.keys():
+                        raise ChargePointDatadomeCaptcha(
+                            body["url"], f"[{method}] {url} blocked by Datadome."
+                        )
+                except JSONDecodeError:
+                    raise ChargePointCommunicationException(
+                        e.response, f"FORBIDDEN: [{method}] {url}"
+                    )
+        except RequestException as e:
+            _LOGGER.error(str(e))
+        return r
+
+    def _init_account_parameters(self):
+        account: ChargePointAccount = self.get_account()
+        self._user_id = str(account.user.user_id)
+        if account.user.username != self._username:
+            _LOGGER.warning(
+                "Username used for discovery (%s) does not match session (%s), using value from session.",
+                self._username,
+                account.user.username,
+            )
+            self._username = account.user.username
+
+        self.session.headers.update(
+            {
+                "cp-session-type": "CP_SESSION_TOKEN",
+                "cp-session-token": self.coulomb_token or "",
+                "cp-region": self._global_config.region,
+            }
+        )
+
+    def login_with_password(self, password: str) -> None:
         """
         Create a session and login to ChargePoint
-        :param username: Account username
         :param password: Account password
         """
-        login_url = (
-            f"{self._global_config.endpoints.sso}v1/user/login"
-        )
-        
+        login_url = f"{self._global_config.endpoints.sso}v1/user/login"
+
         request = {
-            "username": username,
+            "username": self._username,
             "password": password,
         }
-        _LOGGER.debug("Attempting client login with user: %s", username)
-        login = self._session.post(login_url, json=request)
-        _LOGGER.debug(login.cookies.get_dict())
-        _LOGGER.debug(login.headers)
+        _LOGGER.debug(
+            "Attempting client login (%s) with user: %s", login_url, self._username
+        )
+        login = post(login_url, json=request)
 
-        if login.status_code == codes.ok:
-            self._logged_in = True
-            self._get_initial_session_token()
-            account: ChargePointAccount = self.get_account()
-            self._user_id = str(account.user.user_id)
-            self.refresh_session_token()
+        coulomb_token = login.cookies.get(COULOMB_SESSION)
+        if login.status_code == codes.ok and coulomb_token:
+            self._set_coulomb_token(coulomb_token)
+            self._init_account_parameters()
             return
 
         _LOGGER.error(
@@ -136,8 +166,24 @@ class ChargePoint:
         )
         raise ChargePointLoginError(login, "Failed to authenticate to ChargePoint!")
 
+    def login_with_sso_session(self, sso_jwt: str):
+        _LOGGER.debug("Requesting coulomb session token")
+        url = f"{self._global_config.endpoints.portal_domain}index.php/nghelper/getSession"
+        response = get(url, cookies={SSO_SESSION: sso_jwt})
+
+        coulomb_token = response.cookies.get(COULOMB_SESSION)
+        if response.status_code == codes.ok and coulomb_token:
+            self._set_coulomb_token(coulomb_token)
+            self._init_account_parameters()
+            return
+
+        raise ChargePointInvalidSession(
+            response, "Failed to exchange sso auth token for coulomb session."
+        )
+
     def logout(self):
-        response = self._session.post(
+        response = self._request(
+            "POST",
             f"{self._global_config.endpoints.sso}v1/user/logout",
         )
 
@@ -148,11 +194,12 @@ class ChargePoint:
 
         self._session.cookies.clear_session_cookies()
         self._logged_in = False
+        self._user_id = None
 
     def _get_configuration(self, username: str) -> ChargePointGlobalConfiguration:
         _LOGGER.debug("Discovering account region for username %s", username)
         request = {"username": username}
-        response = self._session.post(DISCOVERY_API, json=request)
+        response = self._request("POST", DISCOVERY_API, json=request)
         if response.status_code != codes.ok:
             raise ChargePointCommunicationException(
                 response=response,
@@ -167,64 +214,11 @@ class ChargePoint:
         )
         return config
 
-    def _get_initial_session_token(self):
-        _LOGGER.debug("Requesting inital session token")
-        response = self._session.post(
-            f"{self._global_config.endpoints.portal_domain}index.php/nghelper/getSession", json={"user_id": self.user_id}
-        )
-
-        if (response.status_code != codes.ok):
-            _LOGGER.error(
-                "Failed to get session! status_code=%s err=%s",
-                response.status_code,
-                response.text,
-            )
-            raise ChargePointCommunicationException(
-                response=response, message="Failed to retrieve session."
-            )
-
-    def refresh_session_token(self):
-        _LOGGER.debug("Requesting long lived token")
-        response = self._session.post(
-            f"{self._global_config.endpoints.webservices}mobileapi/v5", json={"user_id": self.user_id}
-        )
-
-        if (response.status_code != codes.ok):
-            _LOGGER.error(
-                "Failed to get long lived token! status_code=%s err=%s",
-                response.status_code,
-                response.text,
-            )
-            raise ChargePointCommunicationException(
-                response=response, message="Failed to retrieve long lived token."
-            )
-        
-        self._session.cookies.clear(domain='')
-
-    def _get_session_token(self) -> str:
-        out =''
-        token = [cookie for cookie in self._session.cookies if cookie.name == 'coulomb_sess']
-
-        if token:
-            out = token[0].value
-
-        return out
-
-    def _set_session_token(self, session_token: str):
-        if session_token:
-            if len(session_token) not in  [32,43]:
-                raise ChargePointBaseException("Invalid session token format.")
-
-            self._session.cookies.set("coulomb_sess", session_token)
-
-    def _set_auth_token(self, auth_token: str):
-        if auth_token:
-            self._session.cookies.set("auth-session", auth_token)
-
     @_require_login
     def get_account(self) -> ChargePointAccount:
         _LOGGER.debug("Getting ChargePoint Account Details")
-        response = self._session.get(
+        response = self._request(
+            "GET",
             f"{self._global_config.endpoints.accounts}v1/driver/profile/user",
         )
 
@@ -244,7 +238,8 @@ class ChargePoint:
     @_require_login
     def get_vehicles(self) -> List[ElectricVehicle]:
         _LOGGER.debug("Listing vehicles")
-        response = self._session.get(
+        response = self._request(
+            "GET",
             f"{self._global_config.endpoints.accounts}v1/driver/vehicle",
         )
 
@@ -265,8 +260,10 @@ class ChargePoint:
     def get_home_chargers(self) -> List[int]:
         _LOGGER.debug("Searching for registered pandas")
         get_pandas = {"user_id": self.user_id, "get_pandas": {"mfhs": {}}}
-        response = self._session.post(
-            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=get_pandas
+        response = self._request(
+            "POST",
+            f"{self._global_config.endpoints.webservices}mobileapi/v5",
+            json=get_pandas,
         )
 
         if response.status_code != codes.ok:
@@ -295,8 +292,10 @@ class ChargePoint:
             "user_id": self.user_id,
             "get_panda_status": {"device_id": charger_id, "mfhs": {}},
         }
-        response = self._session.post(
-            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=get_status
+        response = self._request(
+            "POST",
+            f"{self._global_config.endpoints.webservices}mobileapi/v5",
+            json=get_status,
         )
 
         if response.status_code != codes.ok:
@@ -327,7 +326,8 @@ class ChargePoint:
             "get_station_technical_info": {"device_id": charger_id, "mfhs": {}},
         }
 
-        response = self._session.post(
+        response = self._request(
+            "POST",
             f"{self._global_config.endpoints.webservices}mobileapi/v5",
             json=get_tech_info,
         )
@@ -354,8 +354,8 @@ class ChargePoint:
     def get_user_charging_status(self) -> Optional[UserChargingStatus]:
         _LOGGER.debug("Checking account charging status")
         request = {"user_status": {"mfhs": {}}}
-        response = self._session.post(
-            f"{self._global_config.endpoints.mapcache}v2", json=request
+        response = self._request(
+            "POST", f"{self._global_config.endpoints.mapcache}v2", json=request
         )
 
         if response.status_code != codes.ok:
@@ -379,24 +379,17 @@ class ChargePoint:
 
     @_require_login
     def set_amperage_limit(
-        self, charger_id: int, amperage_limit: int, max_retry: int = 5
+        self, charger_id: int, amperage_limit: int
     ) -> None:
         _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
-
-        headers = {
-                "cp-session-type": "CP_SESSION_TOKEN",
-                "cp-session-token": self._get_session_token(),
-                "cp-region": self._global_config.region,
-        }
-        headers.update(self._session.headers)
 
         request = {
             "chargeAmperageLimit": amperage_limit,
         }
-        response = self._session.post(
+        response = self._request(
+            "POST",
             f"{self._global_config.endpoints.internal_api}/driver/charger/{charger_id}/config/v1/charge-amperage-limit",
             json=request,
-            headers=headers,
         )
 
         if response.status_code != codes.ok:
@@ -421,18 +414,6 @@ class ChargePoint:
                 response=response, message=f"Failed to set amperage limit: {message}"
             )
 
-        # This is eventually consistent so we wait until the new limit is reflected.
-        for _ in range(1, max_retry):  # pragma: no cover
-            charger_status = self.get_home_charger_status(charger_id)
-            if charger_status.amperage_limit == amperage_limit:
-                return
-            sleep(1)
-
-        raise ChargePointCommunicationException(
-            response=response,
-            message="New amperage limit did not persist to charger after retries",
-        )
-
     @_require_login
     def restart_home_charger(self, charger_id: int) -> None:
         _LOGGER.debug("Sending restart command for panda: %s", charger_id)
@@ -440,8 +421,10 @@ class ChargePoint:
             "user_id": self.user_id,
             "restart_panda": {"device_id": charger_id, "mfhs": {}},
         }
-        response = self._session.post(
-            f"{self._global_config.endpoints.webservices}mobileapi/v5", json=restart
+        response = self._request(
+            "POST",
+            f"{self._global_config.endpoints.webservices}mobileapi/v5",
+            json=restart,
         )
 
         if response.status_code != codes.ok:

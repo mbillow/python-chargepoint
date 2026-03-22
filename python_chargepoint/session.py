@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from time import sleep
+
+if TYPE_CHECKING:
+    from .client import ChargePoint
 
 from requests import codes
 
@@ -11,7 +16,7 @@ from .exceptions import ChargePointCommunicationException
 
 
 def _modify(
-    client: "ChargePoint",  # noqa: F821
+    client: ChargePoint,
     action: str,
     device_id: int,
     port_number: int = 1,
@@ -22,7 +27,6 @@ def _modify(
         raise AttributeError(f"Invalid action: {action}")
 
     request = {
-        "deviceData": client.device_data,
         "deviceId": device_id,
     }
 
@@ -35,7 +39,8 @@ def _modify(
         "stop": "stopSession",
     }
 
-    response = client.session.post(
+    response = client._request(
+        "POST",
         f"{client.global_config.endpoints.accounts}v1/driver/station/{action_path[action]}",
         json=request,
     )
@@ -60,7 +65,6 @@ def _modify(
             max_retry,
         )
         request = {
-            "deviceData": client.device_data,
             "ackId": ack_id,
             "action": f"{action}_session",
         }
@@ -143,7 +147,7 @@ class ChargingSession:
     utility: Optional[PowerUtility]
 
     def __init__(
-        self, session_id: int, client: "ChargePoint", *args, **kwargs  # noqa: F821
+        self, session_id: int, client: ChargePoint, *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self._client = client
@@ -264,9 +268,9 @@ class ChargingSession:
 
     @classmethod
     def start(
-        cls, device_id: int, client: "ChargePoint", max_retry: int = 30  # noqa: F821
+        cls, device_id: int, client: ChargePoint, max_retry: int = 30
     ):
-        session_id = _modify(
+        _modify(
             client=client, action="start", device_id=device_id, max_retry=max_retry
         )
         # So, after wayyy too much trial and error, I noticed that the "sessionId"
@@ -274,5 +278,4 @@ class ChargingSession:
         # session IDs... I have no clue what it means, so we are just going to
         # get the correct session ID from the status API.
         status = client.get_user_charging_status()
-        if session_id and status:  # pragma: no cover
-            return cls(session_id=status.session_id, client=client)
+        return cls(session_id=status.session_id, client=client)

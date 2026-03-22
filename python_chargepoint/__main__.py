@@ -18,7 +18,8 @@ if __name__ == "__main__":
     password = getpass("Password: ")
 
     try:
-        client = ChargePoint(username, password)
+        client = ChargePoint(username)
+        client.login_with_sso_session("eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1cm46Y3A6dXNlcjpuYS11czowMDZlNzAyMi05MDM0LTRlOWQtOThhMy1iY2E0ODRiZjA1ZWYiLCJpYXQiOjE3NzQyMDk1MjQsIm5iZiI6MTc3NDIwOTUyNCwiZXhwIjoxNzc0MjE2NzI0LCJpc3MiOiJjaGFyZ2Vwb2ludCIsInJvbGUiOiJkcml2ZXIiLCJub3N1c2VyaWQiOjI3NTI0OTgxLCJ1c2VyaWQiOiJ1cm46Y3A6dXNlcjpuYS11czowMDZlNzAyMi05MDM0LTRlOWQtOThhMy1iY2E0ODRiZjA1ZWYiLCJ1c2VybmFtZSI6Im1iaWxsb3ciLCJlbWFpbCI6Im1hcmNAYmlsbG93Lm1lIiwicmVnaW9uIjoiTkEtVVMiLCJ0aW1lem9uZSI6IkNEVCIsInRpbWV6b25lX29mZnNldCI6LTE4MDAwLCJ6b25lX2lkIjoiQW1lcmljYS9DaGljYWdvIiwicHJlZmVycmVkX2lkcF9pZCI6LTEsInRlbmFudF9pZCI6Im5vcyIsImlkcF91c2VyX2lkIjoiIiwianRpIjoiWVRSaU16VTJNRE10TlRBM1ppMDBNVGxtTFdFeE5USXRZMk5qTURnMU4yTXdOVEV3I1UyOWFmYWYjUk5BLVVTIiwiYXVkIjoiQ2hhcmdlUG9pbnQifQ.cghE-nHWKgYNJxwd3w_-z401x9AxTuJ8b5HQNWLyNqrKn4RC31Uevr-8uqzpNMpYqVQ6PgAc63ICMg3xXk_yYA")
     except ChargePointLoginError:
         sys.exit(1)
 

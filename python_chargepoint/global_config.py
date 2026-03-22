@@ -63,6 +63,7 @@ class ChargePointEndpoints:
     sso: str
     webservices: str
     websocket: str
+    home_charger_management: str
 
     @classmethod
     def from_json(cls, json: dict):
@@ -78,6 +79,7 @@ class ChargePointEndpoints:
             sso=_safe_get_endpoint(json, "sso_endpoint"),
             webservices=_safe_get_endpoint(json, "webservices_endpoint"),
             websocket=_safe_get_endpoint(json, "websocket_endpoint"),
+            home_charger_management=_safe_get_endpoint(json, "hcpo_hcm_endpoint")
         )
 
 

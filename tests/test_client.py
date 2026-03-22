@@ -10,7 +10,6 @@ from python_chargepoint.exceptions import (
     ChargePointLoginError,
     ChargePointCommunicationException,
     ChargePointInvalidSession,
-    ChargePointBaseException,
 )
 
 from .test_session import _add_start_function_responses
@@ -20,7 +19,7 @@ from .test_session import _add_start_function_responses
 def test_client_auth_wrapper(authenticated_client: ChargePoint):
     responses.add(
         responses.POST,
-        f"{authenticated_client.global_config.endpoints.accounts}v1/driver/profile/account/logout",
+        f"{authenticated_client.global_config.endpoints.sso}v1/user/logout",
         json={},
     )
 
@@ -30,20 +29,49 @@ def test_client_auth_wrapper(authenticated_client: ChargePoint):
 
 
 @responses.activate
-def test_client_invalid_auth(
+def test_client_login_with_password_failure(
     global_config_json: dict, global_config: ChargePointGlobalConfiguration
 ):
     responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
     responses.add(
         responses.POST,
-        f"{global_config.endpoints.accounts}v2/driver/profile/account/login",
+        f"{global_config.endpoints.sso}v1/user/login",
         status=500,
     )
 
     with pytest.raises(ChargePointLoginError) as exc:
-        ChargePoint("test", "demo")
+        client = ChargePoint("test")
+        client.login_with_password("demo")
 
     assert exc.value.response.status_code == 500
+
+
+@responses.activate
+def test_client_login_with_password(
+    global_config_json: dict,
+    global_config: ChargePointGlobalConfiguration,
+    account_json: dict,
+):
+    coulomb_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
+    responses.add(
+        responses.POST,
+        f"{global_config.endpoints.sso}v1/user/login",
+        status=200,
+        headers={"Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"},
+    )
+    responses.add(
+        responses.GET,
+        f"{global_config.endpoints.accounts}v1/driver/profile/user",
+        status=200,
+        json=account_json,
+    )
+
+    client = ChargePoint("test")
+    client.login_with_password("demo")
+
+    assert client.coulomb_token == coulomb_token
+    assert client.user_id == str(account_json["user"]["userId"])
 
 
 @responses.activate
@@ -76,8 +104,7 @@ def test_client_expired_session(
 
     client = ChargePoint(
         username="test",
-        password="demo",
-        session_token="rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
+        coulomb_token="rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
     )
     with pytest.raises(ChargePointInvalidSession) as exc:
         client.get_account()
@@ -86,14 +113,7 @@ def test_client_expired_session(
 
 
 @responses.activate
-def test_client_invalid_token_format(global_config_json: dict):
-    responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
-    with pytest.raises(ChargePointBaseException):
-        ChargePoint(username="test", password="demo", session_token="bad-token")
-
-
-@responses.activate
-def test_client_with_session_token(
+def test_client_with_coulomb_token(
     global_config_json: dict,
     global_config: ChargePointGlobalConfiguration,
     account_json: dict,
@@ -106,50 +126,64 @@ def test_client_with_session_token(
         json=account_json,
     )
 
-    session_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+    coulomb_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
 
-    client = ChargePoint(username="test", password="demo", session_token=session_token)
+    client = ChargePoint(username="test", coulomb_token=coulomb_token)
 
-    assert client.session_token == session_token
+    assert client.coulomb_token == coulomb_token
     assert client.user_id == str(account_json["user"]["userId"])
 
 
 @responses.activate
-def test_client_expired_session_token(
+def test_client_login_with_sso(
     global_config_json: dict,
     global_config: ChargePointGlobalConfiguration,
+    account_json: dict,
 ):
-    session_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
+    coulomb_token = "rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US"
     responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
     responses.add(
         responses.GET,
-        f"{global_config.endpoints.accounts}v1/driver/profile/user",
-        status=401,
+        f"{global_config.endpoints.portal_domain}index.php/nghelper/getSession",
+        status=200,
+        headers={"Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"},
     )
     responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v2/driver/profile/account/login",
+        responses.GET,
+        f"{global_config.endpoints.accounts}v1/driver/profile/user",
         status=200,
-        json={
-            "user": {"userId": 1},
-            "sessionId": session_token,
-        },
+        json=account_json,
     )
 
-    client = ChargePoint(
-        username="test",
-        password="demo",
-        session_token="expired#D???????#RNA-US",
+    client = ChargePoint("test")
+    client.login_with_sso_session("some-sso-jwt")
+
+    assert client.coulomb_token == coulomb_token
+    assert client.user_id == str(account_json["user"]["userId"])
+
+
+@responses.activate
+def test_client_login_with_sso_failure(
+    global_config_json: dict,
+    global_config: ChargePointGlobalConfiguration,
+):
+    responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
+    responses.add(
+        responses.GET,
+        f"{global_config.endpoints.portal_domain}index.php/nghelper/getSession",
+        status=401,
     )
 
-    assert client.session_token == session_token
+    with pytest.raises(ChargePointInvalidSession):
+        client = ChargePoint("test")
+        client.login_with_sso_session("bad-jwt")
 
 
 @responses.activate
 def test_client_logout_failed(authenticated_client: ChargePoint):
     responses.add(
         responses.POST,
-        f"{authenticated_client.global_config.endpoints.accounts}v1/driver/profile/account/logout",
+        f"{authenticated_client.global_config.endpoints.sso}v1/user/logout",
         status=500,
     )
 

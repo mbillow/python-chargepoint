@@ -33,3 +33,12 @@ class ChargePointInvalidSession(ChargePointCommunicationException):
     """
     Login expired.
     """
+
+class ChargePointDatadomeCaptcha(ChargePointBaseException):
+    """
+    Hit datadome captcha.
+    """
+    def __init__(self, captcha: str, message: str):
+        self.captcha = captcha
+        self.message = message
+        super().__init__(self.message)
