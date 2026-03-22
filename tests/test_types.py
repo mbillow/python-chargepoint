@@ -1,7 +1,7 @@
 from datetime import datetime
 from python_chargepoint.types import (
     ElectricVehicle,
-    ChargePointAccount,
+    Account,
     HomeChargerStatus,
     HomeChargerTechnicalInfo,
     UserChargingStatus,
@@ -9,7 +9,7 @@ from python_chargepoint.types import (
 
 
 def test_electric_vehicle_from_json(electric_vehicle_json: dict):
-    ev = ElectricVehicle.from_json(electric_vehicle_json)
+    ev = ElectricVehicle.model_validate(electric_vehicle_json)
 
     assert ev.year == 2021
     assert ev.color == "Green"
@@ -22,7 +22,7 @@ def test_electric_vehicle_from_json(electric_vehicle_json: dict):
 
 
 def test_account_from_json(account_json: dict):
-    acct = ChargePointAccount.from_json(account_json)
+    acct = Account.model_validate(account_json)
 
     assert acct.user.email == "test@pytest.com"
     assert acct.user.evatar_url == "https://pytest.com"
@@ -44,22 +44,21 @@ def test_account_from_json_no_phone_country(account_json: dict):
     del account_json["user"]["phoneCountryId"]
     del account_json["user"]["phone"]
 
-    acct = ChargePointAccount.from_json(account_json)
+    acct = Account.model_validate(account_json)
     assert acct.user.phone_country_id is None
     assert acct.user.phone is None
 
 
 def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: dict):
-    home = HomeChargerStatus.from_json(charger_id=1, json=home_charger_json)
+    home = HomeChargerStatus.model_validate({"charger_id": 1, **home_charger_json})
 
     assert home.charger_id == 1
     assert home.brand == "CP"
-    assert home.plugged_in is True
-    assert home.connected is True
+    assert home.is_plugged_in is True
+    assert home.is_connected is True
     assert home.charging_status == "AVAILABLE"
-    assert home.last_connected_at == timestamp
-    assert home.reminder_enabled is False
-    assert home.reminder_time == "0:00"
+    assert home.is_reminder_enabled is False
+    assert home.plug_in_reminder_time == "0:00"
     assert home.model == "HOME FLEX"
     assert home.mac_address == "00:00:00:00:00:00"
     assert home.amperage_limit == 28
@@ -83,27 +82,27 @@ def test_home_charger_status_from_json(timestamp: datetime, home_charger_json: d
 def test_home_charger_technical_info_from_json(
     timestamp: datetime, home_charger_tech_info_json: dict
 ):
-    tech = HomeChargerTechnicalInfo.from_json(home_charger_tech_info_json)
+    tech = HomeChargerTechnicalInfo.model_validate(home_charger_tech_info_json)
 
-    assert tech.model == "CPH50-NEMA6-50-L23"
+    assert tech.model_number == "CPH50-NEMA6-50-L23"
     assert tech.serial_number == "1234567890"
-    assert tech.mac_address == "00:00:00:00:00:00"
+    assert tech.wifi_mac == "00:00:00:00:00:00"
     assert tech.software_version == "1.2.3.4"
     assert tech.last_ota_update == timestamp
     assert tech.device_ip == "10.0.0.1"
     assert tech.last_connected_at == timestamp
-    assert tech.is_stop_charge_supported
+    assert tech.stop_charge_supported
 
 
 def test_home_charger_technical_info_without_ip(home_charger_tech_info_json):
-    del home_charger_tech_info_json["device_ip"]
-    tech = HomeChargerTechnicalInfo.from_json(home_charger_tech_info_json)
+    del home_charger_tech_info_json["deviceIp"]
+    tech = HomeChargerTechnicalInfo.model_validate(home_charger_tech_info_json)
 
     assert tech.device_ip is None
 
 
 def test_user_charging_status_from_json(timestamp, user_charging_status_json: dict):
-    status = UserChargingStatus.from_json(user_charging_status_json)
+    status = UserChargingStatus.model_validate(user_charging_status_json)
 
     assert status.session_id == 1
     assert status.start_time == timestamp
@@ -124,5 +123,5 @@ def test_user_charging_status_unknown_state_from_json(caplog, timestamp):
         }
     }
 
-    UserChargingStatus.from_json(json)
+    UserChargingStatus.model_validate(json)
     assert "Charging status returned without a state." in caplog.text

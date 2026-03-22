@@ -2,11 +2,17 @@ import json
 from datetime import datetime, timezone
 
 import pytest
-import responses
+from aioresponses import aioresponses as _aioresponses
 
 from python_chargepoint import ChargePoint
-from python_chargepoint.global_config import ChargePointGlobalConfiguration
+from python_chargepoint.global_config import GlobalConfiguration
 from python_chargepoint.constants import DISCOVERY_API
+
+
+@pytest.fixture
+def aioresponses():
+    with _aioresponses() as m:
+        yield m
 
 
 @pytest.fixture(scope="session")
@@ -40,19 +46,17 @@ def user_charging_status_json(timestamp: datetime):
 
 
 @pytest.fixture(scope="session")
-def global_config(global_config_json) -> ChargePointGlobalConfiguration:
-    return ChargePointGlobalConfiguration.from_json(global_config_json)
+def global_config(global_config_json) -> GlobalConfiguration:
+    return GlobalConfiguration.model_validate(global_config_json)
 
 
 @pytest.fixture
-@responses.activate
-def authenticated_client(global_config_json) -> ChargePoint:
-    responses.add(responses.POST, DISCOVERY_API, status=200, json=global_config_json)
-    responses.add(
-        responses.GET,
+async def authenticated_client(aioresponses, global_config_json) -> ChargePoint:
+    aioresponses.post(DISCOVERY_API, status=200, payload=global_config_json)
+    aioresponses.get(
         "https://account.chargepoint.com/account/v1/driver/profile/user",
         status=200,
-        json={
+        payload={
             "user": {
                 "email": "test@pytest.com",
                 "evatarUrl": "https://pytest.com",
@@ -72,10 +76,12 @@ def authenticated_client(global_config_json) -> ChargePoint:
         },
     )
 
-    return ChargePoint(
+    client = await ChargePoint.create(
         username="test",
         coulomb_token="rAnDomBaSe64EnCodEdDaTaToKeNrAnDomBaSe64EnCodEdD#D???????#RNA-US",
     )
+    yield client
+    await client.close()
 
 
 @pytest.fixture
@@ -121,33 +127,23 @@ def account_json():
 
 
 @pytest.fixture
-def home_charger_json(timestamp: datetime):
+def home_charger_json():
     return {
         "brand": "CP",
-        "is_plugged_in": True,
-        "is_connected": True,
-        "charging_status": "AVAILABLE",
-        "last_connected_at": timestamp.timestamp() * 1000,
-        "is_reminder_enabled": False,
-        "plug_in_reminder_time": "0:00",
+        "isPluggedIn": True,
+        "isConnected": True,
+        "chargingStatus": "AVAILABLE",
+        "isReminderEnabled": False,
+        "plugInReminderTime": "0:00",
         "model": "HOME FLEX",
-        "mac_address": "00:00:00:00:00:00",
-        "charge_amperage_setting": {
-            "charge_limit": 28,
-            "possible_charge_limit": [
-                20,
-                21,
-                22,
-                23,
-                24,
-                25,
-                26,
-                27,
-                28,
-                29,
-                30,
-                31,
-                32,
+        "macAddress": "00:00:00:00:00:00",
+        "hasUtilityInfo": False,
+        "isDuringScheduledTime": False,
+        "chargeAmperageSettings": {
+            "chargeLimit": 28,
+            "inProgress": False,
+            "possibleChargeLimit": [
+                20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
             ],
         },
     }
@@ -156,15 +152,15 @@ def home_charger_json(timestamp: datetime):
 @pytest.fixture
 def home_charger_tech_info_json(timestamp: datetime):
     return {
-        "model_number": "CPH50-NEMA6-50-L23",
-        "serial_number": "1234567890",
-        "wifi_mac": "00:00:00:00:00:00",
-        "mac_address": "00:00:00:00:00:00",
-        "software_version": "1.2.3.4",
-        "last_ota_update": timestamp.timestamp() * 1000,
-        "device_ip": "10.0.0.1",
-        "last_connected_at": timestamp.timestamp() * 1000,
-        "is_stop_charge_supported": True,
+        "modelNumber": "CPH50-NEMA6-50-L23",
+        "serialNumber": "1234567890",
+        "wifiMac": "00:00:00:00:00:00",
+        "macAddress": "00:00:00:00:00:00",
+        "softwareVersion": "1.2.3.4",
+        "lastOtaUpdate": timestamp.timestamp() * 1000,
+        "deviceIp": "10.0.0.1",
+        "lastConnectedAt": timestamp.timestamp() * 1000,
+        "stopChargeSupported": True,
     }
 
 
@@ -274,16 +270,13 @@ def charging_status_partial_json(timestamp: datetime) -> dict:
 
 
 @pytest.fixture
-@responses.activate
-def charging_session(authenticated_client: ChargePoint, charging_status_json: dict):
-    responses.add(
-        responses.GET,
-        "https://mc.chargepoint.com/map-prod/v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
+async def charging_session(
+    aioresponses, authenticated_client: ChargePoint, charging_status_json: dict
+):
+    aioresponses.post(
+        "https://internal-api-us.chargepoint.com/driver-bff/v1/sessions/1",
         status=200,
-        json={
-            "charging_status": charging_status_json,
-        },
+        payload={"charging_status": charging_status_json},
     )
 
-    return authenticated_client.get_charging_session(session_id=1)
+    return await authenticated_client.get_charging_session(session_id=1)

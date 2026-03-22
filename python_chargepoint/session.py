@@ -1,28 +1,29 @@
 from __future__ import annotations
 
+import asyncio
+from dataclasses import dataclass, field
+
+import aiohttp
 from datetime import datetime, timezone
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional
-from time import sleep
+from typing import TYPE_CHECKING, List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from .client import ChargePoint
 
-from requests import codes
-
 from .constants import _LOGGER
-from .types import ChargingSessionUpdate, PowerUtility
-from .exceptions import ChargePointCommunicationException
+from .exceptions import APIError, CommunicationError
+from .types import ChargingSessionUpdate, PowerUtility, VehicleInfo
 
 
-def _modify(
+async def _send_command(
     client: ChargePoint,
     action: str,
     device_id: int,
     port_number: int = 1,
     session_id: int = 0,
-    max_retry: int = 30,
-) -> Optional[int]:
+) -> None:
     if action not in ["start", "stop"]:
         raise AttributeError(f"Invalid action: {action}")
 
@@ -39,243 +40,247 @@ def _modify(
         "stop": "stopSession",
     }
 
-    response = client._request(
+    response = await client._request(
         "POST",
-        f"{client.global_config.endpoints.accounts}v1/driver/station/{action_path[action]}",
+        client.global_config.endpoints.accounts_endpoint / f"v1/driver/station/{action_path[action]}",
         json=request,
     )
 
-    if response.status_code != codes.ok:
+    if response.status != 200:
+        text = await response.text()
         _LOGGER.error(
             "Failed to send command to station! status_code=%s err=%s",
-            response.status_code,
-            response.text,
+            response.status,
+            text,
         )
-        raise ChargePointCommunicationException(
+        raise CommunicationError(
             response=response, message=f"Failed to {action} ChargePoint session."
         )
 
-    action_status = response.json()
+    action_status = await response.json()
     ack_id = action_status.get("ackId")
 
-    for i in range(max_retry):  # pragma: no cover
-        _LOGGER.debug(
-            "Checking station modification status. (Attempt %d/%d)",
-            i + 1,
-            max_retry,
-        )
-        request = {
-            "ackId": ack_id,
-            "action": f"{action}_session",
-        }
-        response = client.session.post(
-            f"{client.global_config.endpoints.accounts}v1/driver/station/session/ack",
-            json=request,
-        )
-        if response.status_code == codes.ok:
-            _LOGGER.info("Successfully confirmed %s command.", action)
+    ack_request = {
+        "ackId": ack_id,
+        "action": f"{action}_session",
+    }
+    ack_url = client.global_config.endpoints.accounts_endpoint / "v1/driver/station/session/ack"
 
-            # If we just started a new session, return the new ID.
-            if action == "start":
-                return response.json().get("sessionId")
-            # Otherwise, just return.
+    ack_response: Optional[aiohttp.ClientResponse] = None
+    body: dict = {}
+    error_message = f"Session failed to {action}."
+    error_id: Optional[int] = None
+    error_category: Optional[str] = None
+
+    for attempt in range(1, 21):
+        _LOGGER.debug(
+            "Checking station modification status for ackId=%s (attempt %d/20)",
+            ack_id,
+            attempt,
+        )
+        ack_response = await client._request("POST", ack_url, json=ack_request)
+
+        if ack_response.status == 200:
+            _LOGGER.info("Successfully confirmed %s command.", action)
+            await ack_response.release()
             return
 
-        if i == max_retry - 1:
-            _LOGGER.error(
-                "Failed to confirm station modification! status_code=%s err=%s",
-                response.status_code,
-                response.text,
-            )
-            raise ChargePointCommunicationException(
-                response=response,
-                message=f"Session failed to {action} in time allotted.",
-            )
-        sleep(1)
+        try:
+            body = await ack_response.json(content_type=None) or {}
+        except Exception:
+            body = {}
+        error_message = body.get("errorMessage", f"Session failed to {action}.")
+        error_id = body.get("errorId")
+        error_category = body.get("errorCategory")
+        _LOGGER.warning(
+            "Station modification not yet confirmed (attempt %d/20): status_code=%s err=%s (id=%s, category=%s)",
+            attempt,
+            ack_response.status,
+            error_message,
+            error_id,
+            error_category,
+        )
+
+        if attempt < 20:
+            await asyncio.sleep(3)
+
+    assert ack_response is not None
+    _LOGGER.error(
+        "Failed to confirm station modification after 20 attempts: err=%s (id=%s, category=%s)",
+        error_message,
+        error_id,
+        error_category,
+    )
+    full_message = f"[{error_category}] {error_message}" if error_category else error_message
+    raise CommunicationError(
+        response=ack_response,
+        message=full_message,
+        body=body,
+    )
+
+
+class _ChargingStatusData(BaseModel):
+    """Parses the charging_status payload from the driver-bff API."""
+
+    start_time: datetime
+    device_id: int = 0
+    device_name: str = ""
+    charging_state: str = Field("", alias="current_charging")
+    charging_time: int = 0
+    energy_kwh: float = 0.0
+    miles_added: float = 0.0
+    miles_added_per_hour: float = 0.0
+    outlet_number: int = 0
+    port_level: int = 0
+    power_kw: float = 0.0
+    purpose: str = ""
+    currency_iso_code: Union[str, int] = ""
+    payment_completed: bool = False
+    payment_type: str = ""
+    pricing_spec_id: int = 0
+    total_amount: float = 0.0
+    api_flag: bool = False
+    enable_stop_charging: bool = False
+    has_charging_receipt: bool = False
+    has_utility_info: bool = False
+    is_home_charger: bool = False
+    is_purpose_finalized: bool = False
+    last_update_data_timestamp: datetime
+    stop_charge_supported: bool = False
+    company_id: int = 0
+    company_name: str = ""
+    latitude: float = Field(0.0, alias="lat")
+    longitude: float = Field(0.0, alias="lon")
+    address: str = Field("", alias="address1")
+    city: str = ""
+    state_name: str = ""
+    country: str = ""
+    zipcode: str = ""
+    update_data: List[ChargingSessionUpdate] = Field(default_factory=list)
+    update_period: int = 0
+    utility: Optional[PowerUtility] = None
+    vehicle_info: Optional[VehicleInfo] = None
+
+    @field_validator("start_time", "last_update_data_timestamp", mode="before")
+    @classmethod
+    def parse_ms_timestamp(cls, v: float) -> datetime:
+        return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
 
 
 @dataclass
 class ChargingSession:
     session_id: int
-    start_time: datetime
 
     # Device Information
-    device_id: int
-    device_name: str
-    charging_state: str
-    charging_time: int
-    energy_kwh: float
-    miles_added: float
-    miles_added_per_hour: float
-    outlet_number: int
-    port_level: int
-    power_kw: float
-    purpose: str
+    device_id: int = 0
+    device_name: str = ""
+    charging_state: str = ""
+    charging_time: int = 0
+    energy_kwh: float = 0.0
+    miles_added: float = 0.0
+    miles_added_per_hour: float = 0.0
+    outlet_number: int = 0
+    port_level: int = 0
+    power_kw: float = 0.0
+    purpose: str = ""
 
     # Payment
-    currency_iso_code: str
-    payment_completed: bool
-    payment_type: str
-    pricing_spec_id: int
-    total_amount: float
+    currency_iso_code: str = ""
+    payment_completed: bool = False
+    payment_type: str = ""
+    pricing_spec_id: int = 0
+    total_amount: float = 0.0
 
     # API / Misc.
-    api_flag: bool
-    enable_stop_charging: bool
-    has_charging_receipt: bool
-    has_utility_info: bool
-    is_home_charger: bool
-    is_purpose_finalized: bool
-    last_update_data_timestamp: datetime
-    stop_charge_supported: bool
+    api_flag: bool = False
+    enable_stop_charging: bool = False
+    has_charging_receipt: bool = False
+    has_utility_info: bool = False
+    is_home_charger: bool = False
+    is_purpose_finalized: bool = False
+    stop_charge_supported: bool = False
 
     # Owner / Location
-    company_id: int
-    company_name: str
-    latitude: float
-    longitude: float
-    address: str
-    city: str
-    state_name: str
-    country: str
-    zipcode: str
+    company_id: int = 0
+    company_name: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    address: str = ""
+    city: str = ""
+    state_name: str = ""
+    country: str = ""
+    zipcode: str = ""
 
     # Session Update History
-    update_data: List[ChargingSessionUpdate]
-    update_period: int
+    update_period: int = 0
 
-    utility: Optional[PowerUtility]
+    # Typed as Optional since they're populated on first async_refresh()
+    start_time: Optional[datetime] = None
+    last_update_data_timestamp: Optional[datetime] = None
+    update_data: Optional[List[ChargingSessionUpdate]] = None
+    utility: Optional[PowerUtility] = None
+    vehicle_info: Optional[VehicleInfo] = None
 
-    def __init__(
-        self, session_id: int, client: ChargePoint, *args, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self._client = client
-        self.session_id = session_id
+    _client: Optional[ChargePoint] = field(default=None, init=False, repr=False)
 
-        self._get()
+    def _apply(self, data: _ChargingStatusData) -> None:
+        for field in _ChargingStatusData.model_fields:
+            setattr(self, field, getattr(data, field))
 
-    def _get(self) -> None:
+    async def async_refresh(self) -> None:
+        assert self._client is not None, "ChargingSession._client must be set before calling async_refresh()"
         _LOGGER.debug("Getting session information for session %s", self.session_id)
-        response = None
 
-        # There is some level of eventual consistency where with sessions
-        # that are started and then immediately retrieved, this normally
-        # becomes consistent within a few seconds, so we will retry this
-        # call up to 10 times.
-        for attempt in range(1, 11):  # pragma: no cover
-            # Today on "Every Internal API is Weird as Hell"...
-            # I present to you: passing a JSON blob as a URL parameter.
-            response = self._client.session.get(
-                f'{self._client.global_config.endpoints.mapcache}v2?{{"user_id":{self._client.user_id},"charging_status":{{'
-                f'"mfhs":{{}},"session_id":{self.session_id}}}}} '
+        response = await self._client._request(
+            "POST",
+            self._client.global_config.endpoints.internal_api_gateway_endpoint / f"driver-bff/v1/sessions/{self.session_id}",
+            json={"charging_status": {"session_id": self.session_id, "mfhs": []}},
+        )
+
+        if response.status != 200:
+            await response.release()
+            raise CommunicationError(
+                response=response, message="Failed to get charging session data."
             )
 
-            if response.status_code != codes.ok:
-                raise ChargePointCommunicationException(
-                    response=response, message="Failed to get charging session data."
-                )
+        json_data = await response.json()
+        status = json_data.get("charging_status", {})
 
-            json = response.json()
-            status = json.get("charging_status", {})
-            # Failed calls here have been NullPointers from their API
-            # directly returned to the user.
-            # There have also been a couple random "this ID doesn't exist"
-            # logical errors as well, so lets just cover all the bases.
-            error = (
-                # Sometimes this key isn't even returned.
-                "charging_status" not in json.keys()
-                or
-                # Logical errors from withing the API returned here.
-                "error_message" in status.keys()
-                or
-                # Raw Java errors are returned here.
-                "error" in status.keys()
+        if (
+            "charging_status" not in json_data
+            or "error_message" in status
+            or "error" in status
+        ):
+            raise CommunicationError(
+                response=response, message="Failed to get charging session data."
             )
-            if error and attempt < 10:
-                _LOGGER.warning("Failed to retrieve session. Attempt (%d/10)", attempt)
-                _LOGGER.debug("%s", json)
-                sleep(1)
-                continue
-            elif error:
-                raise ChargePointCommunicationException(
-                    response=response, message="Failed to get charging session data."
-                )
-            else:
-                break
 
-        _LOGGER.debug("Passed retry loop: %s", response.json())
-        status = response.json()["charging_status"]
+        _LOGGER.debug("Passed session fetch: %s", json_data)
+        self._apply(_ChargingStatusData.model_validate(status))
 
-        self.start_time = datetime.fromtimestamp(
-            status.get("start_time") / 1000, tz=timezone.utc
-        )
-        self.device_id = status.get("device_id", 0)
-        self.device_name = status.get("device_name", 0)
-        self.charging_state = status.get("current_charging", "")
-        self.charging_time = status.get("charging_time", 0)
-        self.energy_kwh = status.get("energy_kwh", 0.0)
-        self.miles_added = status.get("miles_added", 0.0)
-        self.miles_added_per_hour = status.get("miles_added_per_hour", 0.0)
-        self.outlet_number = status.get("outlet_number", 0)
-        self.port_level = status.get("port_level", 0)
-        self.power_kw = status.get("power_kw", 0.0)
-        self.purpose = status.get("purpose", "")
-        self.currency_iso_code = status.get("currency_iso_code", "")
-        self.payment_completed = status.get("payment_completed", False)
-        self.payment_type = status.get("payment_type", "")
-        self.pricing_spec_id = status.get("pricing_spec_id", 0)
-        self.total_amount = status.get("total_amount", 0.0)
-        self.api_flag = status.get("api_flag", False)
-        self.enable_stop_charging = status.get("enable_stop_charging", False)
-        self.has_charging_receipt = status.get("has_charging_receipt", False)
-        self.has_utility_info = status.get("has_utility_info", False)
-        self.is_home_charger = status.get("is_home_charger", False)
-        self.is_purpose_finalized = status.get("is_purpose_finalized", False)
-        self.last_update_data_timestamp = datetime.fromtimestamp(
-            status.get("last_update_data_timestamp") / 1000, tz=timezone.utc
-        )
-        self.stop_charge_supported = status.get("stop_charge_supported", False)
-        self.company_id = status.get("company_id", 0)
-        self.company_name = status.get("company_name", "")
-        self.latitude = status.get("lat", 0.0)
-        self.longitude = status.get("lon", 0.0)
-        self.address = status.get("address1", "")
-        self.city = status.get("city", "")
-        self.state_name = status.get("state_name", "")
-        self.country = status.get("country", "")
-        self.zipcode = status.get("zipcode", "")
-        self.update_data = [
-            ChargingSessionUpdate.from_json(update)
-            for update in status.get("update_data", [])
-        ]
-        self.update_period = status.get("update_period", 0)
-
-        self.utility = None
-        utility = status.get("utility")
-        if utility:
-            self.utility = PowerUtility.from_json(utility)
-
-    def stop(self, max_retry: int = 30) -> None:
-        _modify(
+    async def stop(self) -> None:
+        assert self._client is not None, "ChargingSession._client must be set before calling stop()"
+        await _send_command(
             client=self._client,
             action="stop",
             device_id=self.device_id,
             port_number=self.outlet_number,
             session_id=self.session_id,
-            max_retry=max_retry,
         )
 
     @classmethod
-    def start(
-        cls, device_id: int, client: ChargePoint, max_retry: int = 30
-    ):
-        _modify(
-            client=client, action="start", device_id=device_id, max_retry=max_retry
-        )
+    async def start(
+        cls, device_id: int, client: ChargePoint
+    ) -> ChargingSession:
+        await _send_command(client=client, action="start", device_id=device_id)
         # So, after wayyy too much trial and error, I noticed that the "sessionId"
         # returned by the start session API is significantly higher than normal
         # session IDs... I have no clue what it means, so we are just going to
         # get the correct session ID from the status API.
-        status = client.get_user_charging_status()
-        return cls(session_id=status.session_id, client=client)
+        status = await client.get_user_charging_status()
+        if status is None:
+            raise APIError("No active charging session found after start command.")
+        session = cls(session_id=status.session_id)
+        session._client = client
+        await session.async_refresh()
+        return session

@@ -1,142 +1,81 @@
-from dataclasses import dataclass
-from typing import List
+from typing import Annotated, List
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
+from yarl import URL
+
+EndpointURL = Annotated[URL, BeforeValidator(lambda v: URL(v) if isinstance(v, str) else v)]
 
 
-@dataclass
-class ChargePointZoomBounds:
-    ne_longitude: float
-    ne_latitude: float
-    sw_longitude: float
-    sw_latitude: float
+class ZoomBounds(BaseModel):
+    ne_lon: float = 0.0
+    ne_lat: float = 0.0
+    sw_lon: float = 0.0
+    sw_lat: float = 0.0
 
     def __repr__(self) -> str:
         return (
-            f"[{self.ne_latitude}, {self.ne_longitude}] to "
-            f"[{self.sw_latitude}, {self.sw_longitude}]"
+            f"[{self.ne_lat}, {self.ne_lon}] to "
+            f"[{self.sw_lat}, {self.sw_lon}]"
         )
 
+
+class Country(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: int = 0
+    name: str = ""
+    code: str = ""
+    calling_code: int = 1
+    phone_format: str = ""
+    zoom_bounds: ZoomBounds = Field(default_factory=ZoomBounds)
+
+
+class APIEndpoints(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    accounts_endpoint: EndpointURL = URL("")
+    internal_api_gateway_endpoint: EndpointURL = URL("")
+    mapcache_endpoint: EndpointURL = URL("")
+    panda_websocket_endpoint: EndpointURL = URL("")
+    payment_java_endpoint: EndpointURL = URL("")
+    payment_php_endpoint: EndpointURL = URL("")
+    portal_domain_endpoint: EndpointURL = URL("")
+    portal_subdomain: str = ""
+    sso_endpoint: EndpointURL = URL("")
+    webservices_endpoint: EndpointURL = URL("")
+    websocket_endpoint: EndpointURL = URL("")
+    hcpo_hcm_endpoint: EndpointURL = URL("")
+
+    @model_validator(mode="before")
     @classmethod
-    def from_json(cls, json: dict):
-        return cls(
-            ne_longitude=float(json.get("ne_lon", 0.0)),
-            sw_latitude=float(json.get("sw_lat", 0.0)),
-            ne_latitude=float(json.get("ne_lat", 0.0)),
-            sw_longitude=float(json.get("sw_lon", 0.0)),
-        )
+    def extract_endpoint_values(cls, data: dict) -> dict:
+        return {
+            k: v.get("value", "") if isinstance(v, dict) else v
+            for k, v in data.items()
+        }
 
 
-@dataclass
-class ChargePointCountry:
-    id: int
-    name: str
-    code: str
-    calling_code: int
-    phone_format: str
-    zoom_bounds: ChargePointZoomBounds
+class Currency(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    @classmethod
-    def from_json(cls, json: dict):
-        return cls(
-            id=json.get("id", 0),
-            name=json.get("name", ""),
-            code=json.get("code", ""),
-            calling_code=json.get("callingCode", 1),
-            phone_format=json.get("phoneFormat", ""),
-            zoom_bounds=ChargePointZoomBounds.from_json(json.get("zoomBounds", {})),
-        )
+    code: str = ""
+    name: str = ""
+    card_cost: float = 0.0
+    symbol: str = ""
+    initial_deposit: float = 0.0
+    replenishment_threshold: float = 0.0
+    max_decimal_places: int = 0
 
 
-def _safe_get_endpoint(json: dict, endpoint_key: str) -> str:
-    return json.get(endpoint_key, {}).get("value", "")
-
-
-@dataclass
-class ChargePointEndpoints:
-    accounts: str
-    internal_api: str
-    mapcache: str
-    panda_websocket: str
-    payment_java: str
-    payment_php: str
-    portal_domain: str
-    portal_subdomain: str
-    sso: str
-    webservices: str
-    websocket: str
-    home_charger_management: str
-
-    @classmethod
-    def from_json(cls, json: dict):
-        return cls(
-            accounts=_safe_get_endpoint(json, "accounts_endpoint"),
-            internal_api=_safe_get_endpoint(json, "internal_api_gateway_endpoint"),
-            mapcache=_safe_get_endpoint(json, "mapcache_endpoint"),
-            panda_websocket=_safe_get_endpoint(json, "panda_websocket_endpoint"),
-            payment_java=_safe_get_endpoint(json, "payment_java_endpoint"),
-            payment_php=_safe_get_endpoint(json, "payment_php_endpoint"),
-            portal_domain=_safe_get_endpoint(json, "portal_domain_endpoint"),
-            portal_subdomain=_safe_get_endpoint(json, "portal_subdomain"),
-            sso=_safe_get_endpoint(json, "sso_endpoint"),
-            webservices=_safe_get_endpoint(json, "webservices_endpoint"),
-            websocket=_safe_get_endpoint(json, "websocket_endpoint"),
-            home_charger_management=_safe_get_endpoint(json, "hcpo_hcm_endpoint")
-        )
-
-
-@dataclass
-class ChargePointCurrency:
-    code: str
-    name: str
-    card_cost: float
-    symbol: str
-    initial_deposit: float
-    replenishment_threshold: float
-    max_decimal_places: int
-
-    @classmethod
-    def from_json(cls, json: dict):
-        return cls(
-            code=json.get("code", ""),
-            name=json.get("name", ""),
-            card_cost=json.get("cardCost", 0.0),
-            symbol=json.get("symbol", ""),
-            initial_deposit=json.get("initialDeposit", 0.0),
-            replenishment_threshold=json.get("replenishmentThreshold", 0.0),
-            max_decimal_places=json.get("maxDecimalPlaces", 0),
-        )
-
-
-@dataclass
-class ChargePointGlobalConfiguration:
-    region: str
-
-    default_country: ChargePointCountry
-    supported_countries: List[ChargePointCountry]
-
-    default_currency: ChargePointCurrency
-    supported_currencies: List[ChargePointCurrency]
-
-    endpoints: ChargePointEndpoints
-
-    @classmethod
-    def from_json(cls, json: dict):
-        default_ctr = ChargePointCountry.from_json(json.get("defaultCountry", {}))
-        supported_ctr = [
-            ChargePointCountry.from_json(country)
-            for country in json.get("supportedCountries", [])
-        ]
-        default_cur = ChargePointCurrency.from_json(json.get("currency", {}))
-        supported_cur = [
-            ChargePointCurrency.from_json(currency)
-            for currency in json.get("supportedCurrencies", [])
-        ]
-        epts = ChargePointEndpoints.from_json(json.get("endPoints", {}))
-
-        return cls(
-            region=json.get("region", ""),
-            default_country=default_ctr,
-            supported_countries=supported_ctr,
-            default_currency=default_cur,
-            supported_currencies=supported_cur,
-            endpoints=epts,
-        )
+class GlobalConfiguration(BaseModel):
+    region: str = ""
+    default_country: Country = Field(default_factory=Country, alias="defaultCountry")
+    supported_countries: List[Country] = Field(
+        default_factory=list, alias="supportedCountries"
+    )
+    default_currency: Currency = Field(default_factory=Currency, alias="currency")
+    supported_currencies: List[Currency] = Field(
+        default_factory=list, alias="supportedCurrencies"
+    )
+    endpoints: APIEndpoints = Field(default_factory=APIEndpoints, alias="endPoints")

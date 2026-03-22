@@ -1,26 +1,29 @@
+from __future__ import annotations
+
 from typing import List, Optional
 from functools import wraps
-from time import sleep
 from importlib.metadata import version, PackageNotFoundError
 from urllib.parse import unquote
+from http.cookies import SimpleCookie
 
-from requests import Session, codes, Response, post, get
-from requests.exceptions import RequestException, HTTPError, JSONDecodeError
+import aiohttp
+from yarl import URL
 
 from .types import (
-    ChargePointAccount,
+    Account,
     ElectricVehicle,
+    HomeChargerConfiguration,
     HomeChargerStatus,
     HomeChargerTechnicalInfo,
     UserChargingStatus,
 )
 from .exceptions import (
-    ChargePointLoginError,
-    ChargePointCommunicationException,
-    ChargePointInvalidSession,
-    ChargePointDatadomeCaptcha,
+    LoginError,
+    CommunicationError,
+    InvalidSession,
+    DatadomeCaptcha,
 )
-from .global_config import ChargePointGlobalConfiguration
+from .global_config import GlobalConfiguration
 from .session import ChargingSession
 from .constants import _LOGGER, DISCOVERY_API
 from . import __name__ as MODULE_NAME
@@ -38,11 +41,11 @@ COOKIE_DOMAIN = ".chargepoint.com"
 
 def _require_login(func):
     @wraps(func)
-    def check_login(*args, **kwargs):
+    async def check_login(*args, **kwargs):
         self: ChargePoint = args[0]
         if self.coulomb_token is None:
             raise RuntimeError("Must login to use ChargePoint API")
-        return func(*args, **kwargs)
+        return await func(*args, **kwargs)
 
     return check_login
 
@@ -52,75 +55,105 @@ class ChargePoint:
         self,
         username: str,
         coulomb_token: str = "",
+        session: Optional[aiohttp.ClientSession] = None,
     ):
-        self._session = Session()
         self._username = username
-        self._user_id = None
+        self._user_id: Optional[int] = None
+        self._global_config: GlobalConfiguration
+        self._request_headers = {"user-agent": USER_AGENT}
+        self._owns_session = session is None
 
-        self._session.headers.update({"user-agent": USER_AGENT})
-
-        self._global_config = self._get_configuration(username)
+        if session is not None:
+            self._session = session
+        else:
+            self._session = aiohttp.ClientSession(
+                cookie_jar=aiohttp.CookieJar()
+            )
 
         if coulomb_token:
             self._set_coulomb_token(coulomb_token)
 
+    @classmethod
+    async def create(
+        cls,
+        username: str,
+        coulomb_token: str = "",
+        session: Optional[aiohttp.ClientSession] = None,
+    ) -> ChargePoint:
+        client = cls(username, coulomb_token, session)
+        client._global_config = await client._get_configuration(username)
         if coulomb_token:
-            self._init_account_parameters()
+            await client._init_account_parameters()
+        return client
+
+    async def close(self) -> None:
+        if self._owns_session:
+            await self._session.close()
 
     @property
-    def user_id(self) -> Optional[str]:
+    def user_id(self) -> Optional[int]:
         return self._user_id
 
     @property
-    def session(self) -> Session:
+    def session(self) -> aiohttp.ClientSession:
         return self._session
 
     @property
-    def coulomb_token(self) -> str | None:
-        return self._session.cookies.get("coulomb_sess", domain=COOKIE_DOMAIN)
+    def coulomb_token(self) -> Optional[str]:
+        cookies = self._session.cookie_jar.filter_cookies(
+            URL(f"https://account{COOKIE_DOMAIN}/")
+        )
+        morsel = cookies.get(COULOMB_SESSION)
+        return morsel.value if morsel else None
 
     def _set_coulomb_token(self, token: str):
         if token:
             parsed = unquote(token)
-            self._session.cookies.set("coulomb_sess", parsed, domain=".chargepoint.com")
+            cookie: SimpleCookie = SimpleCookie()
+            cookie[COULOMB_SESSION] = parsed
+            cookie[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
+            cookie[COULOMB_SESSION]["path"] = "/"
+            self._session.cookie_jar.update_cookies(
+                cookie, response_url=URL(f"https://account{COOKIE_DOMAIN}/")
+            )
         else:
             raise ValueError("empty session token provided")
 
     @property
-    def global_config(self) -> ChargePointGlobalConfiguration:
+    def global_config(self) -> GlobalConfiguration:
         return self._global_config
 
-    def _request(self, method: str, url: str, **kwargs) -> Response:
+    async def _request(self, method: str, url: URL, **kwargs) -> aiohttp.ClientResponse:
         _LOGGER.debug("[%s] %s", method, url)
-        r = self._session.request(method, url, **kwargs)
-        _LOGGER.debug("Status: %d", r.status_code)
-        _LOGGER.debug("Request Headers: %s", r.request.headers)
-        _LOGGER.debug("Response Headers: %s", r.headers)
-        try:
-            r.raise_for_status()
-        except HTTPError as e:
-            if e.response.status_code == codes.unauthorized:
-                raise ChargePointInvalidSession(
-                    e.response, "Session token has expired. Please login again!"
-                ) from e
-            if e.response.status_code == codes.forbidden:
-                try:
-                    body = e.response.json()
-                    if "url" in body.keys():
-                        raise ChargePointDatadomeCaptcha(
-                            body["url"], f"[{method}] {url} blocked by Datadome."
-                        )
-                except JSONDecodeError:
-                    raise ChargePointCommunicationException(
-                        e.response, f"FORBIDDEN: [{method}] {url}"
-                    )
-        except RequestException as e:
-            _LOGGER.error(str(e))
-        return r
+        headers = {**self._request_headers, **kwargs.pop("headers", {})}
+        response = await self._session.request(method, url, headers=headers, **kwargs)
+        _LOGGER.debug("Status: %d", response.status)
+        _LOGGER.debug("Request Headers: %s", response.request_info.headers)
+        _LOGGER.debug("Response Headers: %s", response.headers)
 
-    def _init_account_parameters(self):
-        account: ChargePointAccount = self.get_account()
-        self._user_id = str(account.user.user_id)
+        if response.status == 401:
+            await response.release()
+            raise InvalidSession(
+                response, "Session token has expired. Please login again!"
+            )
+        if response.status == 403:
+            try:
+                body = await response.json(content_type=None)
+                if "url" in body:
+                    raise DatadomeCaptcha(
+                        body["url"], f"[{method}] {url} blocked by Datadome."
+                    )
+            except Exception:
+                pass
+            raise CommunicationError(
+                response, f"FORBIDDEN: [{method}] {url}"
+            )
+
+        return response
+
+    async def _init_account_parameters(self):
+        account: Account = await self.get_account()
+        self._user_id = account.user.user_id
         if account.user.username != self._username:
             _LOGGER.warning(
                 "Username used for discovery (%s) does not match session (%s), using value from session.",
@@ -129,7 +162,7 @@ class ChargePoint:
             )
             self._username = account.user.username
 
-        self.session.headers.update(
+        self._request_headers.update(
             {
                 "cp-session-type": "CP_SESSION_TOKEN",
                 "cp-session-token": self.coulomb_token or "",
@@ -137,13 +170,12 @@ class ChargePoint:
             }
         )
 
-    def login_with_password(self, password: str) -> None:
+    async def login_with_password(self, password: str) -> None:
         """
-        Create a session and login to ChargePoint
+        Login to ChargePoint with a username and password.
         :param password: Account password
         """
-        login_url = f"{self._global_config.endpoints.sso}v1/user/login"
-
+        login_url = self._global_config.endpoints.sso_endpoint / "v1/user/login"
         request = {
             "username": self._username,
             "password": password,
@@ -151,61 +183,63 @@ class ChargePoint:
         _LOGGER.debug(
             "Attempting client login (%s) with user: %s", login_url, self._username
         )
-        login = post(login_url, json=request)
+        async with self._session.post(login_url, json=request) as login:
+            cookie_morsel = login.cookies.get(COULOMB_SESSION)
+            if login.status == 200 and cookie_morsel:
+                self._set_coulomb_token(cookie_morsel.value)
+                await self._init_account_parameters()
+                return
 
-        coulomb_token = login.cookies.get(COULOMB_SESSION)
-        if login.status_code == codes.ok and coulomb_token:
-            self._set_coulomb_token(coulomb_token)
-            self._init_account_parameters()
-            return
+            _LOGGER.error(
+                "Failed to get auth token! status_code=%s err=%s",
+                login.status,
+                await login.text(),
+            )
+            raise LoginError(login, "Failed to authenticate to ChargePoint!")
 
-        _LOGGER.error(
-            "Failed to get auth token! status_code=%s err=%s",
-            login.status_code,
-            login.text,
-        )
-        raise ChargePointLoginError(login, "Failed to authenticate to ChargePoint!")
-
-    def login_with_sso_session(self, sso_jwt: str):
+    async def login_with_sso_session(self, sso_jwt: str) -> None:
         _LOGGER.debug("Requesting coulomb session token")
-        url = f"{self._global_config.endpoints.portal_domain}index.php/nghelper/getSession"
-        response = get(url, cookies={SSO_SESSION: sso_jwt})
+        url = self._global_config.endpoints.portal_domain_endpoint / "index.php/nghelper/getSession"
+        async with self._session.get(url, cookies={SSO_SESSION: sso_jwt}) as response:
+            cookie_morsel = response.cookies.get(COULOMB_SESSION)
+            if response.status == 200 and cookie_morsel:
+                self._set_coulomb_token(cookie_morsel.value)
+                await self._init_account_parameters()
+                return
 
-        coulomb_token = response.cookies.get(COULOMB_SESSION)
-        if response.status_code == codes.ok and coulomb_token:
-            self._set_coulomb_token(coulomb_token)
-            self._init_account_parameters()
-            return
+            raise InvalidSession(
+                response, "Failed to exchange sso auth token for coulomb session."
+            )
 
-        raise ChargePointInvalidSession(
-            response, "Failed to exchange sso auth token for coulomb session."
-        )
-
-    def logout(self):
-        response = self._request(
+    async def logout(self) -> None:
+        response = await self._request(
             "POST",
-            f"{self._global_config.endpoints.sso}v1/user/logout",
+            self._global_config.endpoints.sso_endpoint / "v1/user/logout",
         )
 
-        if response.status_code != codes.ok:
-            raise ChargePointCommunicationException(
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error("Failed to log out! status_code=%s err=%s", response.status, text)
+            raise CommunicationError(
                 response=response, message="Failed to log out!"
             )
 
-        self._session.cookies.clear_session_cookies()
-        self._logged_in = False
+        await response.release()
+        self._session.cookie_jar.clear()
         self._user_id = None
 
-    def _get_configuration(self, username: str) -> ChargePointGlobalConfiguration:
+    async def _get_configuration(self, username: str) -> GlobalConfiguration:
         _LOGGER.debug("Discovering account region for username %s", username)
         request = {"username": username}
-        response = self._request("POST", DISCOVERY_API, json=request)
-        if response.status_code != codes.ok:
-            raise ChargePointCommunicationException(
+        response = await self._request("POST", DISCOVERY_API, json=request)
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error("Failed to discover region! status_code=%s err=%s", response.status, text)
+            raise CommunicationError(
                 response=response,
                 message="Failed to discover region for provided username!",
             )
-        config = ChargePointGlobalConfiguration.from_json(response.json())
+        config = GlobalConfiguration.model_validate(await response.json())
         _LOGGER.debug(
             "Discovered account region: %s / %s (%s)",
             config.region,
@@ -215,241 +249,248 @@ class ChargePoint:
         return config
 
     @_require_login
-    def get_account(self) -> ChargePointAccount:
+    async def get_account(self) -> Account:
         _LOGGER.debug("Getting ChargePoint Account Details")
-        response = self._request(
+        response = await self._request(
             "GET",
-            f"{self._global_config.endpoints.accounts}v1/driver/profile/user",
+            self._global_config.endpoints.accounts_endpoint / "v1/driver/profile/user",
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to get account information! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to get user information."
             )
 
-        account = response.json()
-        return ChargePointAccount.from_json(account)
+        return Account.model_validate(await response.json())
 
     @_require_login
-    def get_vehicles(self) -> List[ElectricVehicle]:
+    async def get_vehicles(self) -> List[ElectricVehicle]:
         _LOGGER.debug("Listing vehicles")
-        response = self._request(
+        response = await self._request(
             "GET",
-            f"{self._global_config.endpoints.accounts}v1/driver/vehicle",
+            self._global_config.endpoints.accounts_endpoint / "v1/driver/vehicle",
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to list vehicles! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to retrieve EVs."
             )
 
-        evs = response.json()
-        return [ElectricVehicle.from_json(ev) for ev in evs]
+        evs = await response.json()
+        return [ElectricVehicle.model_validate(ev) for ev in evs]
 
     @_require_login
-    def get_home_chargers(self) -> List[int]:
-        _LOGGER.debug("Searching for registered pandas")
-        get_pandas = {"user_id": self.user_id, "get_pandas": {"mfhs": {}}}
-        response = self._request(
-            "POST",
-            f"{self._global_config.endpoints.webservices}mobileapi/v5",
-            json=get_pandas,
+    async def get_home_chargers(self) -> List[int]:
+        _LOGGER.debug("Searching for registered home chargers")
+        response = await self._request(
+            "GET",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers",
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to get home chargers! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to retrieve Home Flex chargers."
             )
 
-        # {"get_pandas":{"device_ids":[12345678]}}
-        pandas = response.json()["get_pandas"]["device_ids"]
+        data = (await response.json())["data"]
+        chargers = [int(item["id"]) for item in data]
         _LOGGER.debug(
-            "Discovered %d connected pandas: %s",
-            len(pandas),
-            ",".join([str(p) for p in pandas]),
+            "Discovered %d home charger(s): %s",
+            len(chargers),
+            ",".join([str(c) for c in chargers]),
         )
-        return pandas
+        return chargers
 
     @_require_login
-    def get_home_charger_status(self, charger_id: int) -> HomeChargerStatus:
+    async def get_home_charger_status(self, charger_id: int) -> HomeChargerStatus:
         _LOGGER.debug("Getting status for panda: %s", charger_id)
-        get_status = {
-            "user_id": self.user_id,
-            "get_panda_status": {"device_id": charger_id, "mfhs": {}},
-        }
-        response = self._request(
-            "POST",
-            f"{self._global_config.endpoints.webservices}mobileapi/v5",
-            json=get_status,
+        response = await self._request(
+            "GET",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/status",
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to determine home charger status! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to get home charger status."
             )
 
-        status = response.json()
-
+        status = await response.json()
         _LOGGER.debug(status)
-
-        return HomeChargerStatus.from_json(
-            charger_id=charger_id, json=status["get_panda_status"]
-        )
+        return HomeChargerStatus.model_validate({"charger_id": charger_id, **status})
 
     @_require_login
-    def get_home_charger_technical_info(
+    async def get_home_charger_technical_info(
         self, charger_id: int
     ) -> HomeChargerTechnicalInfo:
-        _LOGGER.debug("Getting tech info for panda: %s", charger_id)
-        get_tech_info = {
-            "user_id": self.user_id,
-            "get_station_technical_info": {"device_id": charger_id, "mfhs": {}},
-        }
-
-        response = self._request(
-            "POST",
-            f"{self._global_config.endpoints.webservices}mobileapi/v5",
-            json=get_tech_info,
+        _LOGGER.debug("Getting tech info for charger: %s", charger_id)
+        response = await self._request(
+            "GET",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/technical-info",
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
-                "Failed to determine home charger tech info! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                "Failed to get home charger tech info! status_code=%s err=%s",
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to get home charger tech info."
             )
 
-        status = response.json()
-
-        _LOGGER.debug(status)
-
-        return HomeChargerTechnicalInfo.from_json(
-            json=status["get_station_technical_info"]
-        )
+        return HomeChargerTechnicalInfo.model_validate(await response.json())
 
     @_require_login
-    def get_user_charging_status(self) -> Optional[UserChargingStatus]:
+    async def get_user_charging_status(self) -> Optional[UserChargingStatus]:
         _LOGGER.debug("Checking account charging status")
-        request = {"user_status": {"mfhs": {}}}
-        response = self._request(
-            "POST", f"{self._global_config.endpoints.mapcache}v2", json=request
+        request: dict = {"user_status": {"mfhs": {}}}
+        response = await self._request(
+            "POST", self._global_config.endpoints.mapcache_endpoint / "v2", json=request
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to get account charging status! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to get user charging status."
             )
 
-        status = response.json()
+        status = await response.json()
         if not status["user_status"]:
             _LOGGER.debug("No user status returned, assuming not charging.")
             return None
 
         _LOGGER.debug("Raw status: %s", status)
-
-        return UserChargingStatus.from_json(status["user_status"])
+        return UserChargingStatus.model_validate(status["user_status"])
 
     @_require_login
-    def set_amperage_limit(
-        self, charger_id: int, amperage_limit: int
-    ) -> None:
-        _LOGGER.debug(f"Setting amperage limit for {charger_id} to {amperage_limit}")
-
-        request = {
-            "chargeAmperageLimit": amperage_limit,
-        }
-        response = self._request(
-            "POST",
-            f"{self._global_config.endpoints.internal_api}/driver/charger/{charger_id}/config/v1/charge-amperage-limit",
-            json=request,
+    async def set_amperage_limit(self, charger_id: int, amperage_limit: int) -> None:
+        _LOGGER.debug("Setting amperage limit for %s to %s", charger_id, amperage_limit)
+        response = await self._request(
+            "PUT",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/chargers/{charger_id}/charge-amperage-limit",
+            json={"chargeAmperageLimit": amperage_limit},
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to set amperage limit! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to set amperage limit."
             )
-        status = response.json()
-        # The API can return 200 but still have a failure status.
-        if status["status"] != "success":
-            message = status.get("message", "empty message")
-            _LOGGER.error(
-                "Failed to set amperage limit! status=%s err=%s",
-                status["status"],
-                message,
-            )
-            raise ChargePointCommunicationException(
-                response=response, message=f"Failed to set amperage limit: {message}"
-            )
+
+        await response.release()
 
     @_require_login
-    def restart_home_charger(self, charger_id: int) -> None:
-        _LOGGER.debug("Sending restart command for panda: %s", charger_id)
-        restart = {
-            "user_id": self.user_id,
-            "restart_panda": {"device_id": charger_id, "mfhs": {}},
-        }
-        response = self._request(
-            "POST",
-            f"{self._global_config.endpoints.webservices}mobileapi/v5",
-            json=restart,
+    async def set_led_brightness(self, charger_id: int, level: int) -> None:
+        """
+        Set the LED brightness level for a home charger.
+        :param charger_id: The charger device ID
+        :param level: Brightness level (0=off, 1=20%, 2=40%, 3=60%, 4=80%, 5=100%).
+                      Available levels are returned by get_home_charger_config().
+        """
+        _LOGGER.debug("Setting LED brightness for %s to %s", charger_id, level)
+        response = await self._request(
+            "PUT",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/chargers/{charger_id}/led-brightness",
+            json={"ledBrightnessLevel": level},
         )
 
-        if response.status_code != codes.ok:
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error(
+                "Failed to set LED brightness! status_code=%s err=%s",
+                response.status,
+                text,
+            )
+            raise CommunicationError(
+                response=response, message="Failed to set LED brightness."
+            )
+
+        await response.release()
+
+    @_require_login
+    async def restart_home_charger(self, charger_id: int) -> None:
+        _LOGGER.debug("Sending restart command for charger: %s", charger_id)
+        response = await self._request(
+            "POST",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/restart",
+        )
+
+        if response.status != 200:
+            text = await response.text()
             _LOGGER.error(
                 "Failed to restart charger! status_code=%s err=%s",
-                response.status_code,
-                response.text,
+                response.status,
+                text,
             )
-            raise ChargePointCommunicationException(
+            raise CommunicationError(
                 response=response, message="Failed to restart charger."
             )
 
-        status = response.json()
-        _LOGGER.debug(status)
-        return
+        await response.release()
 
     @_require_login
-    def get_charging_session(self, session_id: int) -> ChargingSession:
-        return ChargingSession(session_id=session_id, client=self)
-
-    @_require_login
-    def start_charging_session(
-        self, device_id: int, max_retry: int = 30
-    ) -> ChargingSession:
-
-        return ChargingSession.start(
-            device_id=device_id, client=self, max_retry=max_retry
+    async def get_home_charger_config(self, charger_id: int) -> HomeChargerConfiguration:
+        _LOGGER.debug("Getting configuration for charger: %s", charger_id)
+        response = await self._request(
+            "GET",
+            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/configurations",
         )
+
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error(
+                "Failed to get charger configuration! status_code=%s err=%s",
+                response.status,
+                text,
+            )
+            raise CommunicationError(
+                response=response, message="Failed to get charger configuration."
+            )
+
+        return HomeChargerConfiguration.model_validate(await response.json())
+
+    @_require_login
+    async def get_charging_session(self, session_id: int) -> ChargingSession:
+        session = ChargingSession(session_id=session_id)
+        session._client = self
+        await session.async_refresh()
+        return session
+
+    @_require_login
+    async def start_charging_session(self, device_id: int) -> ChargingSession:
+        return await ChargingSession.start(device_id=device_id, client=self)

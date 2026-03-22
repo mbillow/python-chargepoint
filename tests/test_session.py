@@ -3,261 +3,179 @@ from datetime import datetime
 from typing import Optional
 
 import pytest
-import responses
 
 from python_chargepoint import ChargePoint
-from python_chargepoint.global_config import ChargePointGlobalConfiguration
-from python_chargepoint.session import ChargingSession, _modify
-from python_chargepoint.exceptions import ChargePointCommunicationException
+from python_chargepoint.global_config import GlobalConfiguration
+from python_chargepoint.session import ChargingSession, _send_command
+from python_chargepoint.exceptions import CommunicationError
 
 
 def _add_start_function_responses(
-    global_config: ChargePointGlobalConfiguration, session_id: Optional[int] = 12345
+    aioresponses,
+    global_config: GlobalConfiguration,
+    session_id: Optional[int] = 12345,
 ) -> None:
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/startsession",
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/startsession",
         status=200,
-        json={"ackId": 1},
+        payload={"ackId": 1},
     )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
-        status=403,
-        json={"error": "failed to start session"},
-    )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/session/ack",
         status=200,
-        json={"sessionId": session_id},
+        payload={"sessionId": session_id},
     )
 
 
-@responses.activate
-def test_get_session(charging_session: ChargingSession, timestamp: datetime):
+async def test_get_session(charging_session: ChargingSession, timestamp: datetime):
     assert charging_session.session_id == 1
     assert charging_session.utility.name == "Power Company"
     assert len(charging_session.update_data) == 1
     assert charging_session.update_data[0].timestamp == timestamp
 
 
-def test_modify_invalid_action():
+async def test_send_command_invalid_action():
     with pytest.raises(AttributeError):
-        _modify(action="invalid", client=None, device_id=1)
+        await _send_command(action="invalid", client=None, device_id=1)
 
 
-@responses.activate
-def test_stop_session_failure(
-    global_config: ChargePointGlobalConfiguration, charging_session: ChargingSession
+async def test_stop_session_failure(
+    aioresponses,
+    global_config: GlobalConfiguration,
+    charging_session: ChargingSession,
 ):
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/stopSession",
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/stopSession",
         status=400,
     )
 
-    with pytest.raises(ChargePointCommunicationException) as exc:
-        charging_session.stop()
+    with pytest.raises(CommunicationError) as exc:
+        await charging_session.stop()
 
-    assert exc.value.response.status_code == 400
+    assert exc.value.response.status == 400
 
 
-@responses.activate
-def test_stop_session(
-    global_config: ChargePointGlobalConfiguration,
+async def test_stop_session(
+    aioresponses,
+    global_config: GlobalConfiguration,
     charging_session: ChargingSession,
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/stopSession",
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/stopSession",
         status=200,
-        json={"ackId": 1},
+        payload={"ackId": 1},
     )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
-        status=403,
-        json={"error": "failed to stop session"},
-    )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/session/ack",
         status=200,
-        json={},
+        payload={},
     )
 
-    assert charging_session.stop() is None
+    assert await charging_session.stop() is None
     assert "Successfully confirmed stop command." in caplog.text
 
 
-@responses.activate
-def test_stop_session_exceed_retry(
-    global_config: ChargePointGlobalConfiguration, charging_session: ChargingSession
-):
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/stopSession",
-        status=200,
-        json={"ackId": 1},
-    )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
-        status=403,
-        json={"error": "attempt 1"},
-    )
-    responses.add(
-        responses.POST,
-        f"{global_config.endpoints.accounts}v1/driver/station/session/ack",
-        status=403,
-        json={"error": "attempt 2"},
-    )
-    with pytest.raises(ChargePointCommunicationException) as exc:
-        charging_session.stop(max_retry=2)
-
-    assert exc.value.response.json()["error"] == "attempt 2"
-
-
-@responses.activate
-def test_start_session(
-    authenticated_client: ChargePoint,
+async def test_stop_session_ack_failure(
+    aioresponses,
+    global_config: GlobalConfiguration,
     charging_session: ChargingSession,
+):
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/stopSession",
+        status=200,
+        payload={"ackId": 1},
+    )
+    aioresponses.post(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/station/session/ack",
+        status=403,
+        payload={"error": "failed to stop session"},
+    )
+
+    with pytest.raises(CommunicationError):
+        await charging_session.stop()
+
+
+async def test_start_session(
+    aioresponses,
+    authenticated_client: ChargePoint,
     user_charging_status_json: dict,
     charging_status_json: dict,
     caplog,
 ):
     caplog.set_level(logging.INFO)
-    _add_start_function_responses(global_config=authenticated_client.global_config)
-
-    responses.add(
-        responses.POST,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2",
-        status=200,
-        json={"user_status": user_charging_status_json},
-    )
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
-        status=200,
-        json={
-            "charging_status": charging_status_json,
-        },
+    _add_start_function_responses(
+        aioresponses=aioresponses,
+        global_config=authenticated_client.global_config,
     )
 
-    new = charging_session.start(client=authenticated_client, device_id=1)
+    aioresponses.post(
+        f"{authenticated_client.global_config.endpoints.mapcache_endpoint}v2",
+        status=200,
+        payload={"user_status": user_charging_status_json},
+    )
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        status=200,
+        payload={"charging_status": charging_status_json},
+    )
+
+    new = await ChargingSession.start(client=authenticated_client, device_id=1)
     assert new.session_id == 1
     assert "Successfully confirmed start command." in caplog.text
 
 
-@responses.activate
-def test_get_session_eventual_consistency(
-    authenticated_client: ChargePoint,
-    user_charging_status_json: dict,
-    charging_status_json: dict,
+async def test_get_charging_session_error(
+    aioresponses, authenticated_client: ChargePoint
 ):
-    _add_start_function_responses(global_config=authenticated_client.global_config)
-
-    responses.add(
-        responses.POST,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2",
-        status=200,
-        json={"user_status": user_charging_status_json},
-    )
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
-        status=200,
-        json={"charging_status": {"error": "java.lang.NullPointerException"}},
-    )
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
-        status=200,
-        json={"charging_status": charging_status_json},
-    )
-
-    session = ChargingSession.start(device_id=1, client=authenticated_client)
-    assert session.session_id == 1
-
-
-@responses.activate
-def test_get_session_eventual_consistency_failure(
-    authenticated_client: ChargePoint, user_charging_status_json: dict
-):
-    _add_start_function_responses(global_config=authenticated_client.global_config)
-
-    responses.add(
-        responses.POST,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2",
-        status=200,
-        json={"user_status": user_charging_status_json},
-    )
-    for i in range(0, 12):
-        responses.add(
-            responses.GET,
-            f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-            + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
-            status=200,
-            json={"charging_status": {"error": "java.lang.NullPointerException"}},
-        )
-
-    with pytest.raises(ChargePointCommunicationException) as exc:
-        ChargingSession.start(device_id=1, client=authenticated_client)
-
-    assert exc.value.response.status_code == 200
-
-
-@responses.activate
-def test_get_charging_session_error(authenticated_client: ChargePoint):
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
         status=500,
     )
 
-    with pytest.raises(ChargePointCommunicationException) as exc:
-        authenticated_client.get_charging_session(session_id=1)
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.get_charging_session(session_id=1)
 
-    assert exc.value.response.status_code == 500
+    assert exc.value.response.status == 500
 
 
-@responses.activate
-def test_get_charging_session_no_utility(
-    authenticated_client: ChargePoint, charging_status_json: dict
+async def test_get_charging_session_error_body(
+    aioresponses, authenticated_client: ChargePoint
+):
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        status=200,
+        payload={"charging_status": {"error": "java.lang.NullPointerException"}},
+    )
+
+    with pytest.raises(CommunicationError):
+        await authenticated_client.get_charging_session(session_id=1)
+
+
+async def test_get_charging_session_no_utility(
+    aioresponses, authenticated_client: ChargePoint, charging_status_json: dict
 ):
     charging_status_json["utility"] = None
 
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
         status=200,
-        json={"charging_status": charging_status_json},
+        payload={"charging_status": charging_status_json},
     )
 
-    session = authenticated_client.get_charging_session(session_id=1)
+    session = await authenticated_client.get_charging_session(session_id=1)
     assert session.utility is None
 
 
-@responses.activate
-def test_get_charging_session_no_pricing_spec_id(
-    authenticated_client: ChargePoint, charging_status_partial_json: dict
+async def test_get_charging_session_no_pricing_spec_id(
+    aioresponses, authenticated_client: ChargePoint, charging_status_partial_json: dict
 ):
-
-    responses.add(
-        responses.GET,
-        f"{authenticated_client.global_config.endpoints.mapcache}v2?%7B%22user_id%22%3A1%2C%22charging_status"
-        + "%22%3A%7B%22mfhs%22%3A%7B%7D%2C%22session_id%22%3A1%7D%7D",
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
         status=200,
-        json={"charging_status": charging_status_partial_json},
+        payload={"charging_status": charging_status_partial_json},
     )
 
-    session = authenticated_client.get_charging_session(session_id=1)
+    session = await authenticated_client.get_charging_session(session_id=1)
     assert session.pricing_spec_id == 0

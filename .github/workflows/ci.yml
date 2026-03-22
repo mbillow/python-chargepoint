@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "poetry"
+
+      - run: poetry install
+
+      - name: black
+        run: poetry run black --check python_chargepoint/ tests/
+
+      - name: flake8
+        run: poetry run flake8 python_chargepoint/ tests/
+
+      - name: mypy
+        run: poetry run mypy python_chargepoint/
+
+      - name: pyright
+        run: poetry run pyright python_chargepoint/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+
+      - run: poetry install
+
+      - name: pytest
+        run: poetry run pytest
