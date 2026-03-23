@@ -85,6 +85,69 @@ async def authenticated_client(aioresponses, global_config_json) -> ChargePoint:
 
 
 @pytest.fixture
+def station_info_json():
+    return {
+        "name": ["TEST STATION", "PORT A"],
+        "deviceId": 99991111,
+        "address": {"address1": "1 Test Ave", "city": "Testville", "state": "Teststate"},
+        "description": "Test level 2 station",
+        "modelNumber": "CT4020-HD-GW",
+        "network": {
+            "name": "ChargePoint Network",
+            "displayName": "ChargePoint Network",
+            "logoUrl": "https://example.com/logo.png",
+            "inNetwork": True,
+        },
+        "portsInfo": {
+            "ports": [
+                {
+                    "outletNumber": 1,
+                    "powerRange": {"unit": "kW", "max": "7.2"},
+                    "status": "available",
+                    "statusV2": "available",
+                    "displayLevel": "AC",
+                    "level": "L2",
+                    "parkingAccessibility": "NONE",
+                    "connectorList": [
+                        {
+                            "status": "available",
+                            "statusV2": "available",
+                            "displayPlugType": "J1772",
+                            "plugType": "J1772",
+                        }
+                    ],
+                }
+            ],
+            "portCount": 1,
+            "dc": False,
+        },
+        "stationStatus": "available",
+        "stationStatusV2": "available",
+        "latitude": 0.1,
+        "longitude": 0.1,
+        "hostName": "Test Host",
+        "openCloseStatus": "open",
+        "maxPower": {"unit": "kW", "max": "7.2"},
+        "accessRestriction": "NONE",
+        "parkingAccessibility": "NONE",
+        "stopChargeSupported": True,
+        "remoteStartCharge": True,
+        "stationPrice": {
+            "currencyCode": "USD",
+            "energyFee": {
+                "touFeeList": [
+                    {"day": "alldays", "startTime": 0, "endTime": 0, "fee": {"amount": 0.10, "unit": "KWH"}}
+                ]
+            },
+            "guestFee": {"amount": 0.99, "unit": "SESSION"},
+            "taxes": [{"name": "State Tax", "percent": 6.25}],
+        },
+        "deviceSoftwareVersion": "V4.6.0.95",
+        "lastChargedDate": "2026-01-01",
+    }
+
+
+@pytest.fixture
 def electric_vehicle_json():
     return {
         "id": 0,
@@ -266,6 +329,82 @@ def charging_status_partial_json(timestamp: datetime) -> dict:
             }
         ],
         "update_period": 1,
+    }
+
+
+@pytest.fixture
+def nearby_stations_json():
+    return {
+        "map_data": {
+            "favorites": [],
+            "stations": [
+                {
+                    "device_id": 99991111,
+                    "lat": 0.1,
+                    "lon": 0.1,
+                    "name1": "TEST STATION",
+                    "name2": "UNIT A",
+                    "address1": "1 Test Ave",
+                    "city": "Testville",
+                    "network_display_name": "ChargePoint Network",
+                    "station_status": "available",
+                    "station_status_v2": "available",
+                    "payment_type": "paid",
+                    "total_port_count": 2,
+                    "ports": [
+                        {
+                            "status_v2": "available",
+                            "port_type": 3,
+                            "outlet_number": 1,
+                            "parking_accessibility": "NONE",
+                            "available_power": "7.2",
+                            "status": "available",
+                        }
+                    ],
+                    "has_l2": True,
+                    "max_power": {"unit": "kW", "max": 7.2},
+                    "can_remote_start_charge": True,
+                    "waitlist_allowed": False,
+                    "access_restriction": "NONE",
+                },
+                {
+                    "device_id": 99992222,
+                    "lat": 0.2,
+                    "lon": 0.2,
+                    "station_status": "in_use",
+                    "station_status_v2": "in_use",
+                    "payment_type": "free",
+                    "is_home": True,
+                    "charging_status": "fully_charged",
+                    "charging_info": {
+                        "session_id": 1000000001,
+                        "session_time": 3600000,
+                        "energy_kwh": 10.5,
+                        "energy_kwh_display": "10.5",
+                        "currency_iso_code": "USD",
+                        "current_charging": "fully_charged",
+                        "miles_added": 40.0,
+                        "total_amount": 0.0,
+                        "payment_type": "none",
+                        "start_time": 1000000000000,
+                        "last_update_data_timestamp": 1000003600000,
+                        "utility": {"id": 1, "name": "Test Utility", "plans": []},
+                        "vehicle_info": {
+                            "vehicle_id": 1111,
+                            "make": "TestMake",
+                            "model": "TestModel",
+                            "year": 2024,
+                            "ev_range": 300,
+                            "battery_capacity": 75.0,
+                            "is_primary_vehicle": True,
+                        },
+                    },
+                    "total_port_count": 1,
+                    "ports": [],
+                    "has_l2": True,
+                },
+            ],
+        }
     }
 
 

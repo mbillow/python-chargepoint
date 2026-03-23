@@ -15,15 +15,18 @@ from .types import (
     HomeChargerConfiguration,
     HomeChargerStatus,
     HomeChargerTechnicalInfo,
+    MapFilter,
+    MapStation,
+    StationInfo,
     UserChargingStatus,
 )
+from .global_config import GlobalConfiguration, ZoomBounds
 from .exceptions import (
     LoginError,
     CommunicationError,
     InvalidSession,
     DatadomeCaptcha,
 )
-from .global_config import GlobalConfiguration
 from .session import ChargingSession
 from .constants import _LOGGER, DISCOVERY_API
 from . import __name__ as MODULE_NAME
@@ -494,3 +497,64 @@ class ChargePoint:
     @_require_login
     async def start_charging_session(self, device_id: int) -> ChargingSession:
         return await ChargingSession.start(device_id=device_id, client=self)
+
+    @_require_login
+    async def get_station(self, device_id: int) -> StationInfo:
+        """Return detailed information about a charging station by device ID."""
+        url = (self._global_config.endpoints.mapcache_endpoint / "v3/station/info").update_query(
+            {"deviceId": str(device_id), "use_cache": "false"}
+        )
+        response = await self._request("GET", url)
+
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error(
+                "Failed to get station info! status_code=%s err=%s", response.status, text
+            )
+            raise CommunicationError(response=response, message="Failed to get station info.")
+
+        data = await response.json()
+        return StationInfo.model_validate(data)
+
+    @_require_login
+    async def get_nearby_stations(
+        self,
+        bounds: ZoomBounds,
+        station_filter: Optional[MapFilter] = None,
+    ) -> List[MapStation]:
+        """Return charging stations within the given bounding box.
+
+        The API clusters stations into aggregate blobs when the bounding box
+        covers too large an area; those blobs are not individual stations and
+        are omitted from the result. If an unexpectedly empty list is returned,
+        try narrowing the bounding box.
+        """
+        _LOGGER.debug("Fetching nearby stations within %s", bounds)
+        request = {
+            "user_id": self._user_id,
+            "map_data": {
+                "sw_lon": bounds.sw_lon,
+                "ne_lat": bounds.ne_lat,
+                "ne_lon": bounds.ne_lon,
+                "sw_lat": bounds.sw_lat,
+                "screen_width": 2048,
+                "screen_height": 2048,
+                "waitlist": True,
+                "filter": station_filter.model_dump() if station_filter else {},
+                "mfhs": {},
+            },
+        }
+        response = await self._request(
+            "POST", self._global_config.endpoints.mapcache_endpoint / "v2", json=request
+        )
+
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error(
+                "Failed to get nearby stations! status_code=%s err=%s", response.status, text
+            )
+            raise CommunicationError(response=response, message="Failed to get nearby stations.")
+
+        data = await response.json()
+        stations = data["map_data"].get("stations", [])
+        return [MapStation.model_validate(s) for s in stations]

@@ -1,12 +1,20 @@
 from datetime import datetime, timezone
-from typing import List, Optional
-
-from typing import Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from .constants import _LOGGER
+from .global_config import ZoomBounds  # noqa: F401 — re-exported for user convenience
+
+
+def _parse_ms_timestamp(v: float) -> datetime:
+    return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
+
+
+class _CamelModel(BaseModel):
+    """Base for models whose API responses use camelCase field names."""
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ElectricVehicle(BaseModel):
@@ -34,8 +42,7 @@ class ElectricVehicle(BaseModel):
         }
 
 
-class User(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class User(_CamelModel):
 
     email: str = ""
     evatar_url: str = ""
@@ -61,15 +68,13 @@ class AccountBalance(BaseModel):
         return {**data, "amount": balance.get("amount", ""), "currency": balance.get("currency", "")}
 
 
-class Account(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class Account(_CamelModel):
 
     user: User
     account_balance: AccountBalance
 
 
-class HomeChargerStatus(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class HomeChargerStatus(_CamelModel):
 
     charger_id: int = 0
     brand: Optional[str] = None
@@ -96,9 +101,7 @@ class HomeChargerStatus(BaseModel):
         }
 
 
-class HomeChargerTechnicalInfo(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
+class HomeChargerTechnicalInfo(_CamelModel):
     model_number: str = ""
     serial_number: str = ""
     wifi_mac: str = ""
@@ -112,11 +115,10 @@ class HomeChargerTechnicalInfo(BaseModel):
     @field_validator("last_ota_update", "last_connected_at", mode="before")
     @classmethod
     def parse_ms_timestamp(cls, v: float) -> datetime:
-        return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
+        return _parse_ms_timestamp(v)
 
 
-class LEDBrightness(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class LEDBrightness(_CamelModel):
 
     level: int = 5
     in_progress: bool = False
@@ -124,8 +126,7 @@ class LEDBrightness(BaseModel):
     is_enabled: bool = True
 
 
-class HomeChargerConfiguration(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class HomeChargerConfiguration(_CamelModel):
 
     serial_number: str = ""
     mac_address: str = ""
@@ -200,7 +201,7 @@ class ChargingSessionUpdate(BaseModel):
     @field_validator("timestamp", mode="before")
     @classmethod
     def parse_ms_timestamp(cls, v: float) -> datetime:
-        return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
+        return _parse_ms_timestamp(v)
 
 
 class PowerUtilityPlan(BaseModel):
@@ -214,3 +215,192 @@ class PowerUtility(BaseModel):
     id: int = 0
     name: str = ""
     plans: List[PowerUtilityPlan] = Field(default_factory=list)
+
+
+class MapFilter(BaseModel):
+    disabled_parking: bool = False
+    network_circuitelectric: bool = False
+    connector_l2: bool = False
+    network_evgo: bool = False
+    network_chargepoint: bool = False
+    connector_l2_tesla: bool = False
+    connector_combo: bool = False
+    connector_chademo: bool = False
+    connector_l1: bool = False
+    connector_l2_nema_1450: bool = False
+    status_available: bool = False
+    network_bchydro: bool = False
+    network_greenlots: bool = False
+    network_flo: bool = False
+    network_evgateway: bool = False
+    network_evconnect: bool = False
+    dc_fast_charging: bool = False
+    price_free: bool = False
+    van_accessible: bool = False
+    network_ionna: bool = False
+    network_blink: bool = False
+    network_mercedes: bool = False
+    connector_tesla: bool = False
+
+
+class StationPort(BaseModel):
+    status_v2: str = ""
+    port_type: int = 0
+    outlet_number: int = 0
+    parking_accessibility: str = ""
+    available_power: float = 0.0
+    status: str = ""
+
+
+class MaxPower(BaseModel):
+    unit: str = ""
+    max: float = 0.0
+
+
+class MapChargingInfo(BaseModel):
+    session_id: int = 0
+    session_time: int = 0
+    energy_kwh: float = 0.0
+    energy_kwh_display: str = ""
+    currency_iso_code: str = ""
+    current_charging: str = ""
+    miles_added: float = 0.0
+    total_amount: float = 0.0
+    payment_type: str = ""
+    start_time: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    last_update_data_timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    utility: Optional[PowerUtility] = None
+    vehicle_info: Optional[VehicleInfo] = None
+
+    @field_validator("start_time", "last_update_data_timestamp", mode="before")
+    @classmethod
+    def parse_ms_timestamp(cls, v: float) -> datetime:
+        return _parse_ms_timestamp(v)
+
+
+class StationConnector(_CamelModel):
+
+    status: str = ""
+    status_v2: str = ""
+    display_plug_type: str = ""
+    plug_type: str = ""
+
+
+class StationPortDetail(_CamelModel):
+
+    outlet_number: int = 0
+    power_range: MaxPower = Field(default_factory=MaxPower)
+    status: str = ""
+    status_v2: str = ""
+    display_level: str = ""
+    level: str = ""
+    parking_accessibility: str = ""
+    connector_list: List[StationConnector] = Field(default_factory=list)
+
+
+class StationPortsInfo(_CamelModel):
+
+    ports: List[StationPortDetail] = Field(default_factory=list)
+    port_count: int = 0
+    dc: bool = False
+
+
+class StationNetwork(_CamelModel):
+
+    name: str = ""
+    display_name: str = ""
+    logo_url: str = ""
+    in_network: bool = False
+
+
+class StationAddress(BaseModel):
+    address1: str = ""
+    city: str = ""
+    state: str = ""
+
+
+class StationPricingFee(BaseModel):
+    amount: float = 0.0
+    unit: str = ""
+
+
+class StationTouEntry(_CamelModel):
+
+    day: str = ""
+    start_time: int = 0
+    end_time: int = 0
+    fee: StationPricingFee = Field(default_factory=StationPricingFee)
+
+
+class StationTax(BaseModel):
+    name: str = ""
+    percent: float = 0.0
+
+
+class StationPrice(_CamelModel):
+
+    currency_code: str = ""
+    tou_fees: List[StationTouEntry] = Field(default_factory=list)
+    guest_fee: Optional[StationPricingFee] = None
+    taxes: List[StationTax] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def unwrap_energy_fee(cls, data: dict) -> dict:
+        tou_fees = data.get("energyFee", {}).get("touFeeList", [])
+        return {**data, "tou_fees": tou_fees}
+
+
+class StationInfo(_CamelModel):
+
+    device_id: int = 0
+    name: List[str] = Field(default_factory=list)
+    address: StationAddress = Field(default_factory=StationAddress)
+    description: str = ""
+    model_number: str = ""
+    network: StationNetwork = Field(default_factory=StationNetwork)
+    ports_info: StationPortsInfo = Field(default_factory=StationPortsInfo)
+    station_status: str = ""
+    station_status_v2: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    host_name: str = ""
+    open_close_status: str = ""
+    max_power: Optional[MaxPower] = None
+    access_restriction: str = ""
+    parking_accessibility: str = ""
+    stop_charge_supported: bool = False
+    remote_start_charge: bool = False
+    station_price: Optional[StationPrice] = None
+    device_software_version: str = ""
+    last_charged_date: Optional[str] = None
+
+
+class MapStation(BaseModel):
+    device_id: int = 0
+    lat: float = 0.0
+    lon: float = 0.0
+    name1: str = ""
+    name2: Optional[str] = None
+    address1: Optional[str] = None
+    city: Optional[str] = None
+    network_display_name: Optional[str] = None
+    network_logo_url: Optional[str] = None
+    station_status: str = ""
+    station_status_v2: str = ""
+    payment_type: str = ""
+    parking_accessibility: Optional[str] = None
+    total_port_count: int = 0
+    ports: List[StationPort] = Field(default_factory=list)
+    has_l2: bool = False
+    max_power: Optional[MaxPower] = None
+    currency_iso_code: Optional[str] = None
+    can_remote_start_charge: bool = False
+    company_id: Optional[int] = None
+    tou_status: Optional[str] = None
+    display_level: Optional[str] = None
+    waitlist_allowed: bool = False
+    access_restriction: Optional[str] = None
+    is_home: bool = False
+    charging_status: Optional[str] = None
+    charging_info: Optional[MapChargingInfo] = None

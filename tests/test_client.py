@@ -498,6 +498,111 @@ async def test_client_get_home_charger_config_failure(
     assert exc.value.response.status == 500
 
 
+async def test_client_get_station(
+    aioresponses, authenticated_client: ChargePoint, station_info_json: dict
+):
+    aioresponses.get(
+        authenticated_client.global_config.endpoints.mapcache_endpoint
+        / "v3/station/info"
+        % {"deviceId": "99991111", "use_cache": "false"},
+        status=200,
+        payload=station_info_json,
+    )
+
+    info = await authenticated_client.get_station(99991111)
+
+    assert info.device_id == 99991111
+    assert info.name == ["TEST STATION", "PORT A"]
+    assert info.address.city == "Testville"
+    assert info.station_status_v2 == "available"
+    assert info.ports_info.port_count == 1
+    assert info.ports_info.ports[0].status_v2 == "available"
+    assert info.ports_info.ports[0].power_range.max == 7.2
+    assert info.ports_info.ports[0].connector_list[0].plug_type == "J1772"
+    assert info.station_price.tou_fees[0].fee.amount == 0.10
+    assert info.station_price.guest_fee.amount == 0.99
+    assert info.station_price.taxes[0].name == "State Tax"
+    assert info.last_charged_date == "2026-01-01"
+
+
+async def test_client_get_station_failure(
+    aioresponses, authenticated_client: ChargePoint
+):
+    aioresponses.get(
+        authenticated_client.global_config.endpoints.mapcache_endpoint
+        / "v3/station/info"
+        % {"deviceId": "99991111", "use_cache": "false"},
+        status=500,
+    )
+
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.get_station(99991111)
+
+    assert exc.value.response.status == 500
+
+
+async def test_client_get_nearby_stations(
+    aioresponses, authenticated_client: ChargePoint, nearby_stations_json: dict
+):
+    from python_chargepoint.global_config import ZoomBounds
+
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.mapcache_endpoint / "v2",
+        status=200,
+        payload=nearby_stations_json,
+    )
+    bounds = ZoomBounds(sw_lat=0.0, sw_lon=0.0, ne_lat=1.0, ne_lon=1.0)
+    stations = await authenticated_client.get_nearby_stations(bounds)
+
+    assert len(stations) == 2
+    public = stations[0]
+    assert public.device_id == 99991111
+    assert public.station_status == "available"
+    assert public.is_home is False
+    assert len(public.ports) == 1
+    assert public.ports[0].available_power == 7.2
+    home = stations[1]
+    assert home.is_home is True
+    assert home.charging_status == "fully_charged"
+    assert home.charging_info.session_id == 1000000001
+    assert home.charging_info.vehicle_info.make == "TestMake"
+
+
+async def test_client_get_nearby_stations_with_filter(
+    aioresponses, authenticated_client: ChargePoint, nearby_stations_json: dict
+):
+    from python_chargepoint.global_config import ZoomBounds
+    from python_chargepoint.types import MapFilter
+
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.mapcache_endpoint / "v2",
+        status=200,
+        payload=nearby_stations_json,
+    )
+    bounds = ZoomBounds(sw_lat=0.0, sw_lon=0.0, ne_lat=1.0, ne_lon=1.0)
+    f = MapFilter(connector_l2=True, connector_combo=True)
+    stations = await authenticated_client.get_nearby_stations(bounds, station_filter=f)
+
+    assert len(stations) == 2
+
+
+async def test_client_get_nearby_stations_failure(
+    aioresponses, authenticated_client: ChargePoint
+):
+    from python_chargepoint.global_config import ZoomBounds
+
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.mapcache_endpoint / "v2",
+        status=500,
+    )
+    bounds = ZoomBounds(sw_lat=0.0, sw_lon=0.0, ne_lat=1.0, ne_lon=1.0)
+
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.get_nearby_stations(bounds)
+
+    assert exc.value.response.status == 500
+
+
 async def test_start_session(
     aioresponses,
     authenticated_client: ChargePoint,
