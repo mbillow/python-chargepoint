@@ -56,6 +56,28 @@ await client.login_with_sso_session("<sso jwt>")
 
 ---
 
+### Obtaining Tokens Manually
+
+Password-based login may be blocked by bot-protection (Datadome). When that happens,
+you can capture a token directly from your browser and pass it to the client.
+
+1. Open [https://driver.chargepoint.com](https://driver.chargepoint.com) in your browser and log in normally.
+2. Open Developer Tools and navigate to **Application > Cookies > https://driver.chargepoint.com**.
+3. Copy the value of one of the following cookies:
+
+| Cookie | Use as |
+|---|---|
+| `coulomb_sess` | `coulomb_token=` (recommended — long-lived) |
+| `auth-session` | `login_with_sso_session()` (shorter-lived JWT) |
+
+> **Note:** The `coulomb_sess` value contains `#` and `?` characters. The library handles both raw and URL-encoded (`%23`, `%3F`) forms automatically. When setting it as a shell environment variable, always wrap the value in **double quotes** to prevent the shell from interpreting `#` as a comment:
+>
+> ```bash
+> export CP_COULOMB_TOKEN="Ab3dEf...token...#D???????#RNA-US"
+> ```
+
+---
+
 ### Account
 
 ```python
