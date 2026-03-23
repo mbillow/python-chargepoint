@@ -69,9 +69,7 @@ class ChargePoint:
         if session is not None:
             self._session = session
         else:
-            self._session = aiohttp.ClientSession(
-                cookie_jar=aiohttp.CookieJar()
-            )
+            self._session = aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar())
 
         if coulomb_token:
             self._set_coulomb_token(coulomb_token)
@@ -148,9 +146,7 @@ class ChargePoint:
                     )
             except Exception:
                 pass
-            raise CommunicationError(
-                response, f"FORBIDDEN: [{method}] {url}"
-            )
+            raise CommunicationError(response, f"FORBIDDEN: [{method}] {url}")
 
         return response
 
@@ -202,7 +198,10 @@ class ChargePoint:
 
     async def login_with_sso_session(self, sso_jwt: str) -> None:
         _LOGGER.debug("Requesting coulomb session token")
-        url = self._global_config.endpoints.portal_domain_endpoint / "index.php/nghelper/getSession"
+        url = (
+            self._global_config.endpoints.portal_domain_endpoint
+            / "index.php/nghelper/getSession"
+        )
         async with self._session.get(url, cookies={SSO_SESSION: sso_jwt}) as response:
             cookie_morsel = response.cookies.get(COULOMB_SESSION)
             if response.status == 200 and cookie_morsel:
@@ -222,10 +221,10 @@ class ChargePoint:
 
         if response.status != 200:
             text = await response.text()
-            _LOGGER.error("Failed to log out! status_code=%s err=%s", response.status, text)
-            raise CommunicationError(
-                response=response, message="Failed to log out!"
+            _LOGGER.error(
+                "Failed to log out! status_code=%s err=%s", response.status, text
             )
+            raise CommunicationError(response=response, message="Failed to log out!")
 
         await response.release()
         self._session.cookie_jar.clear()
@@ -237,7 +236,11 @@ class ChargePoint:
         response = await self._request("POST", DISCOVERY_API, json=request)
         if response.status != 200:
             text = await response.text()
-            _LOGGER.error("Failed to discover region! status_code=%s err=%s", response.status, text)
+            _LOGGER.error(
+                "Failed to discover region! status_code=%s err=%s",
+                response.status,
+                text,
+            )
             raise CommunicationError(
                 response=response,
                 message="Failed to discover region for provided username!",
@@ -299,7 +302,8 @@ class ChargePoint:
         _LOGGER.debug("Searching for registered home chargers")
         response = await self._request(
             "GET",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/users/{self.user_id}/chargers",
         )
 
         if response.status != 200:
@@ -327,7 +331,8 @@ class ChargePoint:
         _LOGGER.debug("Getting status for panda: %s", charger_id)
         response = await self._request(
             "GET",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/status",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/status",
         )
 
         if response.status != 200:
@@ -352,7 +357,8 @@ class ChargePoint:
         _LOGGER.debug("Getting tech info for charger: %s", charger_id)
         response = await self._request(
             "GET",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/technical-info",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/technical-info",
         )
 
         if response.status != 200:
@@ -400,7 +406,8 @@ class ChargePoint:
         _LOGGER.debug("Setting amperage limit for %s to %s", charger_id, amperage_limit)
         response = await self._request(
             "PUT",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/chargers/{charger_id}/charge-amperage-limit",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/chargers/{charger_id}/charge-amperage-limit",
             json={"chargeAmperageLimit": amperage_limit},
         )
 
@@ -428,7 +435,8 @@ class ChargePoint:
         _LOGGER.debug("Setting LED brightness for %s to %s", charger_id, level)
         response = await self._request(
             "PUT",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/chargers/{charger_id}/led-brightness",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/chargers/{charger_id}/led-brightness",
             json={"ledBrightnessLevel": level},
         )
 
@@ -450,7 +458,8 @@ class ChargePoint:
         _LOGGER.debug("Sending restart command for charger: %s", charger_id)
         response = await self._request(
             "POST",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/restart",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/restart",
         )
 
         if response.status != 200:
@@ -467,11 +476,14 @@ class ChargePoint:
         await response.release()
 
     @_require_login
-    async def get_home_charger_config(self, charger_id: int) -> HomeChargerConfiguration:
+    async def get_home_charger_config(
+        self, charger_id: int
+    ) -> HomeChargerConfiguration:
         _LOGGER.debug("Getting configuration for charger: %s", charger_id)
         response = await self._request(
             "GET",
-            self._global_config.endpoints.hcpo_hcm_endpoint / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/configurations",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/configurations",
         )
 
         if response.status != 200:
@@ -501,17 +513,21 @@ class ChargePoint:
     @_require_login
     async def get_station(self, device_id: int) -> StationInfo:
         """Return detailed information about a charging station by device ID."""
-        url = (self._global_config.endpoints.mapcache_endpoint / "v3/station/info").update_query(
-            {"deviceId": str(device_id), "use_cache": "false"}
-        )
+        url = (
+            self._global_config.endpoints.mapcache_endpoint / "v3/station/info"
+        ).update_query({"deviceId": str(device_id), "use_cache": "false"})
         response = await self._request("GET", url)
 
         if response.status != 200:
             text = await response.text()
             _LOGGER.error(
-                "Failed to get station info! status_code=%s err=%s", response.status, text
+                "Failed to get station info! status_code=%s err=%s",
+                response.status,
+                text,
             )
-            raise CommunicationError(response=response, message="Failed to get station info.")
+            raise CommunicationError(
+                response=response, message="Failed to get station info."
+            )
 
         data = await response.json()
         return StationInfo.model_validate(data)
@@ -551,9 +567,13 @@ class ChargePoint:
         if response.status != 200:
             text = await response.text()
             _LOGGER.error(
-                "Failed to get nearby stations! status_code=%s err=%s", response.status, text
+                "Failed to get nearby stations! status_code=%s err=%s",
+                response.status,
+                text,
             )
-            raise CommunicationError(response=response, message="Failed to get nearby stations.")
+            raise CommunicationError(
+                response=response, message="Failed to get nearby stations."
+            )
 
         data = await response.json()
         stations = data["map_data"].get("stations", [])

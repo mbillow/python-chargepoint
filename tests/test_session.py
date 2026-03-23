@@ -116,7 +116,8 @@ async def test_start_session(
         payload={"user_status": user_charging_status_json},
     )
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=200,
         payload={"charging_status": charging_status_json},
     )
@@ -130,7 +131,8 @@ async def test_get_charging_session_error(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=500,
     )
 
@@ -144,7 +146,8 @@ async def test_get_charging_session_error_body(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=200,
         payload={"charging_status": {"error": "java.lang.NullPointerException"}},
     )
@@ -159,7 +162,8 @@ async def test_get_charging_session_no_utility(
     charging_status_json["utility"] = None
 
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=200,
         payload={"charging_status": charging_status_json},
     )
@@ -172,7 +176,8 @@ async def test_get_charging_session_no_pricing_spec_id(
     aioresponses, authenticated_client: ChargePoint, charging_status_partial_json: dict
 ):
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=200,
         payload={"charging_status": charging_status_partial_json},
     )

@@ -19,7 +19,9 @@ class CommunicationError(APIError):
     with the ChargePoint API.
     """
 
-    def __init__(self, response: ClientResponse, message: str, body: Optional[dict] = None):
+    def __init__(
+        self, response: ClientResponse, message: str, body: Optional[dict] = None
+    ):
         self.response = response
         self.message = message
         self.body = body

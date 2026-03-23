@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-chargepoint"
-version = "1.11.0"
+version = "2.0.0"
 description = "A simple, Pythonic wrapper for the ChargePoint API."
 authors = ["Marc Billow <mbillow@users.noreply.github.compoetry>"]
 license = "MIT"
@@ -29,6 +29,7 @@ pytest-mock = "^3.7.0"
 pytest-cov = "^3.0.0"
 mypy = "^1.19.1"
 pyright = "^1.1.408"
+pre-commit = "^4.5.1"
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

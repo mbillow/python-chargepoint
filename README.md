@@ -297,3 +297,48 @@ Use `--help` on any command or subgroup for details:
 chargepoint nearby --help
 chargepoint charger --help
 ```
+
+---
+
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/mbillow/python-chargepoint.git
+cd python-chargepoint
+poetry install
+poetry run pre-commit install
+```
+
+### Checks
+
+The following checks run automatically on every commit via pre-commit, and are also enforced in CI:
+
+| Tool | Purpose |
+|---|---|
+| `black` | Code formatting |
+| `flake8` | Style and error linting |
+| `mypy` | Static type checking |
+| `pyright` | Pylance-compatible type checking |
+
+To run them manually:
+
+```bash
+poetry run pre-commit run --all-files
+```
+
+Or individually:
+
+```bash
+poetry run black --check python_chargepoint/ tests/
+poetry run flake8 python_chargepoint/ tests/
+poetry run mypy python_chargepoint/
+poetry run pyright python_chargepoint/
+```
+
+### Tests
+
+```bash
+poetry run pytest
+```

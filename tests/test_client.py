@@ -52,7 +52,9 @@ async def test_client_login_with_password(
     aioresponses.post(
         f"{global_config.endpoints.sso_endpoint}v1/user/login",
         status=200,
-        headers={"Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"},
+        headers={
+            "Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"
+        },
     )
     aioresponses.get(
         f"{global_config.endpoints.accounts_endpoint}v1/driver/profile/user",
@@ -134,7 +136,9 @@ async def test_client_login_with_sso(
     aioresponses.get(
         f"{global_config.endpoints.portal_domain_endpoint}index.php/nghelper/getSession",
         status=200,
-        headers={"Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"},
+        headers={
+            "Set-Cookie": f"coulomb_sess={coulomb_token}; Domain=.chargepoint.com; Path=/"
+        },
     )
     aioresponses.get(
         f"{global_config.endpoints.accounts_endpoint}v1/driver/profile/user",
@@ -236,9 +240,21 @@ async def test_client_get_home_chargers(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers",
         status=200,
-        payload={"data": [{"id": "1234567890", "label": None, "protocolIdentifier": None, "coordinates": None, "location": None}], "pagination": {"nextCursor": "none"}},
+        payload={
+            "data": [
+                {
+                    "id": "1234567890",
+                    "label": None,
+                    "protocolIdentifier": None,
+                    "coordinates": None,
+                    "location": None,
+                }
+            ],
+            "pagination": {"nextCursor": "none"},
+        },
     )
 
     chargers = await authenticated_client.get_home_chargers()
@@ -251,7 +267,8 @@ async def test_client_get_home_chargers_failure(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers",
         status=500,
     )
 
@@ -297,7 +314,8 @@ async def test_client_get_home_charger_technical_info(
     home_charger_tech_info_json: dict,
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/technical-info",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/technical-info",
         status=200,
         payload=home_charger_tech_info_json,
     )
@@ -314,7 +332,8 @@ async def test_client_get_home_charger_technical_info_failure(
     authenticated_client: ChargePoint,
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/technical-info",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/technical-info",
         status=500,
     )
 
@@ -345,15 +364,21 @@ async def test_client_set_amperage_limit(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.put(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/chargers/1234567890/charge-amperage-limit",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/chargers/1234567890/charge-amperage-limit",
         status=200,
-        payload={"name": "Charge Amperage Limit", "desiredValue": "28", "status": "APPLYING"},
+        payload={
+            "name": "Charge Amperage Limit",
+            "desiredValue": "28",
+            "status": "APPLYING",
+        },
     )
 
     assert await authenticated_client.set_amperage_limit(1234567890, 28) is None
 
     aioresponses.put(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/chargers/1234567890/charge-amperage-limit",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/chargers/1234567890/charge-amperage-limit",
         status=500,
     )
 
@@ -367,7 +392,8 @@ async def test_client_set_led_brightness(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.put(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/chargers/1234567890/led-brightness",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/chargers/1234567890/led-brightness",
         status=200,
         payload={"name": "LED Brightness", "desiredValue": "4", "status": "APPLYING"},
     )
@@ -375,7 +401,8 @@ async def test_client_set_led_brightness(
     assert await authenticated_client.set_led_brightness(1234567890, 4) is None
 
     aioresponses.put(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/chargers/1234567890/led-brightness",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/chargers/1234567890/led-brightness",
         status=500,
     )
 
@@ -418,7 +445,8 @@ async def test_client_restart_home_charger(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.post(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/restart",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/restart",
         status=200,
     )
 
@@ -429,7 +457,8 @@ async def test_client_restart_home_charger_failure(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.post(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/restart",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/restart",
         status=500,
     )
 
@@ -443,7 +472,8 @@ async def test_client_get_home_charger_config(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/configurations",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/configurations",
         status=200,
         payload={
             "settings": {
@@ -455,7 +485,14 @@ async def test_client_get_home_charger_config(
                 "utility": {
                     "id": 22,
                     "name": "Austin Energy",
-                    "plans": [{"id": 80693, "name": "Residential", "code": "R", "isEvPlan": False}],
+                    "plans": [
+                        {
+                            "id": 80693,
+                            "name": "Residential",
+                            "code": "R",
+                            "isEvPlan": False,
+                        }
+                    ],
                 },
                 "indicatorLightEcoMode": "OFF",
                 "flashlightReset": False,
@@ -468,7 +505,6 @@ async def test_client_get_home_charger_config(
                         "inProgress": False,
                         "supportedLevels": ["0", "1", "2", "3", "4", "5"],
                         "isEnabled": True,
-
                     }
                 },
             }
@@ -488,7 +524,8 @@ async def test_client_get_home_charger_config_failure(
     aioresponses, authenticated_client: ChargePoint
 ):
     aioresponses.get(
-        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint / "api/v1/configuration/users/1/chargers/1234567890/configurations",
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/configuration/users/1/chargers/1234567890/configurations",
         status=500,
     )
 
@@ -622,7 +659,8 @@ async def test_start_session(
         payload={"user_status": user_charging_status_json},
     )
     aioresponses.post(
-        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions/1",
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
         status=200,
         payload={"charging_status": charging_status_json},
     )

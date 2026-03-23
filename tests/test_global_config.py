@@ -17,5 +17,9 @@ def test_global_configuration(global_config_json: dict):
     assert cfg.default_currency.name == "U.S. Dollars"
     assert len(cfg.supported_currencies) == 17
 
-    assert cfg.endpoints.accounts_endpoint == URL("https://account.chargepoint.com/account/")
-    assert cfg.endpoints.internal_api_gateway_endpoint == URL("https://internal-api-us.chargepoint.com")
+    assert cfg.endpoints.accounts_endpoint == URL(
+        "https://account.chargepoint.com/account/"
+    )
+    assert cfg.endpoints.internal_api_gateway_endpoint == URL(
+        "https://internal-api-us.chargepoint.com"
+    )

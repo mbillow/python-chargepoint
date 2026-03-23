@@ -14,6 +14,7 @@ def _parse_ms_timestamp(v: float) -> datetime:
 
 class _CamelModel(BaseModel):
     """Base for models whose API responses use camelCase field names."""
+
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
@@ -65,7 +66,11 @@ class AccountBalance(BaseModel):
     @classmethod
     def flatten_balance(cls, data: dict) -> dict:
         balance = data.get("balance", {})
-        return {**data, "amount": balance.get("amount", ""), "currency": balance.get("currency", "")}
+        return {
+            **data,
+            "amount": balance.get("amount", ""),
+            "currency": balance.get("currency", ""),
+        }
 
 
 class Account(_CamelModel):
@@ -107,8 +112,12 @@ class HomeChargerTechnicalInfo(_CamelModel):
     wifi_mac: str = ""
     mac_address: str = ""
     software_version: str = "0.0.0.0"
-    last_ota_update: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
-    last_connected_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    last_ota_update: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
+    last_connected_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
     device_ip: Optional[str] = None
     stop_charge_supported: bool = False
 
@@ -158,7 +167,9 @@ class Station(BaseModel):
 
 class UserChargingStatus(BaseModel):
     session_id: int = Field(0, alias="sessionId")
-    start_time: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc), alias="startTimeUTC")
+    start_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc), alias="startTimeUTC"
+    )
     state: str = "unknown"
     stations: List[Station] = Field(default_factory=list)
 
@@ -268,7 +279,9 @@ class MapChargingInfo(BaseModel):
     total_amount: float = 0.0
     payment_type: str = ""
     start_time: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
-    last_update_data_timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    last_update_data_timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc)
+    )
     utility: Optional[PowerUtility] = None
     vehicle_info: Optional[VehicleInfo] = None
 

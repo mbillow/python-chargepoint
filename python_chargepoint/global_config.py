@@ -4,7 +4,9 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 from pydantic.alias_generators import to_camel
 from yarl import URL
 
-EndpointURL = Annotated[URL, BeforeValidator(lambda v: URL(v) if isinstance(v, str) else v)]
+EndpointURL = Annotated[
+    URL, BeforeValidator(lambda v: URL(v) if isinstance(v, str) else v)
+]
 
 
 class ZoomBounds(BaseModel):
@@ -14,10 +16,7 @@ class ZoomBounds(BaseModel):
     sw_lat: float = 0.0
 
     def __repr__(self) -> str:
-        return (
-            f"[{self.ne_lat}, {self.ne_lon}] to "
-            f"[{self.sw_lat}, {self.sw_lon}]"
-        )
+        return f"[{self.ne_lat}, {self.ne_lon}] to " f"[{self.sw_lat}, {self.sw_lon}]"
 
 
 class Country(BaseModel):
@@ -51,8 +50,7 @@ class APIEndpoints(BaseModel):
     @classmethod
     def extract_endpoint_values(cls, data: dict) -> dict:
         return {
-            k: v.get("value", "") if isinstance(v, dict) else v
-            for k, v in data.items()
+            k: v.get("value", "") if isinstance(v, dict) else v for k, v in data.items()
         }
 
 

@@ -42,7 +42,8 @@ async def _send_command(
 
     response = await client._request(
         "POST",
-        client.global_config.endpoints.accounts_endpoint / f"v1/driver/station/{action_path[action]}",
+        client.global_config.endpoints.accounts_endpoint
+        / f"v1/driver/station/{action_path[action]}",
         json=request,
     )
 
@@ -64,7 +65,10 @@ async def _send_command(
         "ackId": ack_id,
         "action": f"{action}_session",
     }
-    ack_url = client.global_config.endpoints.accounts_endpoint / "v1/driver/station/session/ack"
+    ack_url = (
+        client.global_config.endpoints.accounts_endpoint
+        / "v1/driver/station/session/ack"
+    )
 
     ack_response: Optional[aiohttp.ClientResponse] = None
     body: dict = {}
@@ -111,7 +115,9 @@ async def _send_command(
         error_id,
         error_category,
     )
-    full_message = f"[{error_category}] {error_message}" if error_category else error_message
+    full_message = (
+        f"[{error_category}] {error_message}" if error_category else error_message
+    )
     raise CommunicationError(
         response=ack_response,
         message=full_message,
@@ -224,16 +230,19 @@ class ChargingSession:
     _client: Optional[ChargePoint] = field(default=None, init=False, repr=False)
 
     def _apply(self, data: _ChargingStatusData) -> None:
-        for field in _ChargingStatusData.model_fields:
-            setattr(self, field, getattr(data, field))
+        for field_name in _ChargingStatusData.model_fields:
+            setattr(self, field_name, getattr(data, field_name))
 
     async def async_refresh(self) -> None:
-        assert self._client is not None, "ChargingSession._client must be set before calling async_refresh()"
+        assert (
+            self._client is not None
+        ), "ChargingSession._client must be set before calling async_refresh()"
         _LOGGER.debug("Getting session information for session %s", self.session_id)
 
         response = await self._client._request(
             "POST",
-            self._client.global_config.endpoints.internal_api_gateway_endpoint / f"driver-bff/v1/sessions/{self.session_id}",
+            self._client.global_config.endpoints.internal_api_gateway_endpoint
+            / f"driver-bff/v1/sessions/{self.session_id}",
             json={"charging_status": {"session_id": self.session_id, "mfhs": []}},
         )
 
@@ -259,7 +268,9 @@ class ChargingSession:
         self._apply(_ChargingStatusData.model_validate(status))
 
     async def stop(self) -> None:
-        assert self._client is not None, "ChargingSession._client must be set before calling stop()"
+        assert (
+            self._client is not None
+        ), "ChargingSession._client must be set before calling stop()"
         await _send_command(
             client=self._client,
             action="stop",
@@ -269,9 +280,7 @@ class ChargingSession:
         )
 
     @classmethod
-    async def start(
-        cls, device_id: int, client: ChargePoint
-    ) -> ChargingSession:
+    async def start(cls, device_id: int, client: ChargePoint) -> ChargingSession:
         await _send_command(client=client, action="start", device_id=device_id)
         # So, after wayyy too much trial and error, I noticed that the "sessionId"
         # returned by the start session API is significantly higher than normal

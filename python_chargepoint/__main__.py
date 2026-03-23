@@ -18,11 +18,14 @@ from .types import MapFilter, ZoomBounds
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def async_cmd(f):
     """Decorator: run an async click command inside asyncio.run()."""
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         return asyncio.run(f(*args, **kwargs))
+
     return wrapper
 
 
@@ -75,6 +78,7 @@ def _dump_json(obj) -> None:
 # Root group
 # ---------------------------------------------------------------------------
 
+
 @click.group()
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON.")
@@ -90,6 +94,7 @@ def cli(ctx, debug: bool, as_json: bool) -> None:
 # account
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.pass_context
 @async_cmd
@@ -104,7 +109,9 @@ async def account(ctx) -> None:
             click.echo(f"Name:    {acct.user.full_name}")
             click.echo(f"Email:   {acct.user.email}")
             click.echo(f"Phone:   {acct.user.phone or '—'}")
-            click.echo(f"Balance: {acct.account_balance.amount} {acct.account_balance.currency}")
+            click.echo(
+                f"Balance: {acct.account_balance.amount} {acct.account_balance.currency}"
+            )
             click.echo(f"Country: {client.global_config.default_country.name}")
     except CommunicationError as e:
         click.echo(f"Error: {e.message}", err=True)
@@ -116,6 +123,7 @@ async def account(ctx) -> None:
 # ---------------------------------------------------------------------------
 # vehicles
 # ---------------------------------------------------------------------------
+
 
 @cli.command()
 @click.pass_context
@@ -148,6 +156,7 @@ async def vehicles(ctx) -> None:
 # charging-status
 # ---------------------------------------------------------------------------
 
+
 @cli.command("charging-status")
 @click.pass_context
 @async_cmd
@@ -178,6 +187,7 @@ async def charging_status(ctx) -> None:
 # station
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.argument("device_id", type=int)
 @click.pass_context
@@ -192,14 +202,18 @@ async def station(ctx, device_id: int) -> None:
         else:
             click.echo(" / ".join(info.name))
             click.echo(f"  Status:    {info.station_status_v2}")
-            click.echo(f"  Address:   {info.address.address1}, {info.address.city}, {info.address.state}")
+            click.echo(
+                f"  Address:   {info.address.address1}, {info.address.city}, {info.address.state}"
+            )
             click.echo(f"  Network:   {info.network.display_name}")
             click.echo(f"  Host:      {info.host_name}")
             if info.description:
                 click.echo(f"  Notes:     {info.description}")
             if info.max_power:
                 click.echo(f"  Max Power: {info.max_power.max} {info.max_power.unit}")
-            click.echo(f"  Ports:     {info.ports_info.port_count} ({'DC' if info.ports_info.dc else 'AC'})")
+            click.echo(
+                f"  Ports:     {info.ports_info.port_count} ({'DC' if info.ports_info.dc else 'AC'})"
+            )
             for port in info.ports_info.ports:
                 click.echo(
                     f"    Port {port.outlet_number}: {port.status_v2}"
@@ -210,9 +224,13 @@ async def station(ctx, device_id: int) -> None:
             if info.station_price:
                 p = info.station_price
                 for tou in p.tou_fees:
-                    click.echo(f"  Rate:      {tou.fee.amount} {p.currency_code}/{tou.fee.unit}")
+                    click.echo(
+                        f"  Rate:      {tou.fee.amount} {p.currency_code}/{tou.fee.unit}"
+                    )
                 if p.guest_fee:
-                    click.echo(f"  Guest Fee: {p.guest_fee.amount} {p.currency_code}/{p.guest_fee.unit}")
+                    click.echo(
+                        f"  Guest Fee: {p.guest_fee.amount} {p.currency_code}/{p.guest_fee.unit}"
+                    )
                 for tax in p.taxes:
                     click.echo(f"  Tax:       {tax.name} {tax.percent}%")
             if info.last_charged_date:
@@ -228,6 +246,7 @@ async def station(ctx, device_id: int) -> None:
 # nearby
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.option("--sw-lat", type=float, required=True, help="Southwest corner latitude.")
 @click.option("--sw-lon", type=float, required=True, help="Southwest corner longitude.")
@@ -238,7 +257,9 @@ async def station(ctx, device_id: int) -> None:
 @click.option("--connector-chademo", is_flag=True, help="Filter: CHAdeMO connectors.")
 @click.option("--connector-tesla", is_flag=True, help="Filter: Tesla connectors.")
 @click.option("--dc-fast", is_flag=True, help="Filter: DC fast charging only.")
-@click.option("--available-only", is_flag=True, help="Filter: Show only available stations.")
+@click.option(
+    "--available-only", is_flag=True, help="Filter: Show only available stations."
+)
 @click.option("--free-only", is_flag=True, help="Filter: Show only free stations.")
 @click.pass_context
 @async_cmd
@@ -261,8 +282,17 @@ async def nearby(
     try:
         bounds = ZoomBounds(sw_lat=sw_lat, sw_lon=sw_lon, ne_lat=ne_lat, ne_lon=ne_lon)
         station_filter = None
-        if any([connector_l2, connector_combo, connector_chademo,
-                connector_tesla, dc_fast, available_only, free_only]):
+        if any(
+            [
+                connector_l2,
+                connector_combo,
+                connector_chademo,
+                connector_tesla,
+                dc_fast,
+                available_only,
+                free_only,
+            ]
+        ):
             station_filter = MapFilter(
                 connector_l2=connector_l2,
                 connector_combo=connector_combo,
@@ -273,7 +303,9 @@ async def nearby(
                 price_free=free_only,
             )
 
-        stations = await client.get_nearby_stations(bounds, station_filter=station_filter)
+        stations = await client.get_nearby_stations(
+            bounds, station_filter=station_filter
+        )
 
         if ctx.obj["as_json"]:
             _dump_json(stations)
@@ -308,6 +340,7 @@ async def nearby(
 # ---------------------------------------------------------------------------
 # charger subgroup
 # ---------------------------------------------------------------------------
+
 
 @cli.group()
 def charger() -> None:
@@ -383,8 +416,12 @@ async def charger_tech_info(ctx, charger_id: int) -> None:
             click.echo(f"MAC:          {info.mac_address}")
             click.echo(f"WiFi MAC:     {info.wifi_mac}")
             click.echo(f"Firmware:     {info.software_version}")
-            click.echo(f"Last OTA:     {info.last_ota_update.strftime('%Y-%m-%d %H:%M %Z')}")
-            click.echo(f"Last Seen:    {info.last_connected_at.strftime('%Y-%m-%d %H:%M %Z')}")
+            click.echo(
+                f"Last OTA:     {info.last_ota_update.strftime('%Y-%m-%d %H:%M %Z')}"
+            )
+            click.echo(
+                f"Last Seen:    {info.last_connected_at.strftime('%Y-%m-%d %H:%M %Z')}"
+            )
             click.echo(f"Stop Charge:  {info.stop_charge_supported}")
             if info.device_ip:
                 click.echo(f"IP:           {info.device_ip}")
@@ -411,8 +448,10 @@ async def charger_config(ctx, charger_id: int) -> None:
             click.echo(f"MAC:         {config.mac_address}")
             click.echo(f"Nickname:    {config.station_nickname or '—'}")
             click.echo(f"Address:     {config.street_address or '—'}")
-            click.echo(f"LED Level:   {config.led_brightness.level} "
-                       f"(options: {config.led_brightness.supported_levels})")
+            click.echo(
+                f"LED Level:   {config.led_brightness.level} "
+                f"(options: {config.led_brightness.supported_levels})"
+            )
             click.echo(f"LED Enabled: {config.led_brightness.is_enabled}")
             if config.utility:
                 click.echo(f"Utility:     {config.utility.name}")
@@ -484,6 +523,7 @@ async def charger_restart(ctx, charger_id: int) -> None:
 # session subgroup
 # ---------------------------------------------------------------------------
 
+
 @cli.group()
 def session() -> None:
     """Charging session management."""
@@ -505,14 +545,19 @@ async def session_get(ctx, session_id: int) -> None:
             click.echo(f"Session:   {s.session_id}")
             click.echo(f"Device:    {s.device_id} — {s.device_name}")
             click.echo(f"State:     {s.charging_state}")
-            click.echo(f"Started:   {s.start_time.strftime('%Y-%m-%d %H:%M %Z')}")
+            started = (
+                s.start_time.strftime("%Y-%m-%d %H:%M %Z") if s.start_time else "—"
+            )
+            click.echo(f"Started:   {started}")
             click.echo(f"Energy:    {s.energy_kwh:.3f} kWh")
             click.echo(f"Power:     {s.power_kw:.1f} kW")
             click.echo(f"Miles:     +{s.miles_added:.1f} mi")
             click.echo(f"Cost:      {s.total_amount} {s.currency_iso_code}")
             click.echo(f"Location:  {s.address}, {s.city}, {s.state_name}")
             if s.vehicle_info:
-                click.echo(f"Vehicle:   {s.vehicle_info.year} {s.vehicle_info.make} {s.vehicle_info.model}")
+                click.echo(
+                    f"Vehicle:   {s.vehicle_info.year} {s.vehicle_info.make} {s.vehicle_info.model}"
+                )
     except CommunicationError as e:
         click.echo(f"Error: {e.message}", err=True)
         sys.exit(1)

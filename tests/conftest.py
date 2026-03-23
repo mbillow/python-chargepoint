@@ -89,7 +89,11 @@ def station_info_json():
     return {
         "name": ["TEST STATION", "PORT A"],
         "deviceId": 99991111,
-        "address": {"address1": "1 Test Ave", "city": "Testville", "state": "Teststate"},
+        "address": {
+            "address1": "1 Test Ave",
+            "city": "Testville",
+            "state": "Teststate",
+        },
         "description": "Test level 2 station",
         "modelNumber": "CT4020-HD-GW",
         "network": {
@@ -136,7 +140,12 @@ def station_info_json():
             "currencyCode": "USD",
             "energyFee": {
                 "touFeeList": [
-                    {"day": "alldays", "startTime": 0, "endTime": 0, "fee": {"amount": 0.10, "unit": "KWH"}}
+                    {
+                        "day": "alldays",
+                        "startTime": 0,
+                        "endTime": 0,
+                        "fee": {"amount": 0.10, "unit": "KWH"},
+                    }
                 ]
             },
             "guestFee": {"amount": 0.99, "unit": "SESSION"},
@@ -206,7 +215,19 @@ def home_charger_json():
             "chargeLimit": 28,
             "inProgress": False,
             "possibleChargeLimit": [
-                20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
             ],
         },
     }
