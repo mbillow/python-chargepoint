@@ -189,6 +189,18 @@ class ChargePoint:
                 await self._init_account_parameters()
                 return
 
+            if login.status == 403:
+                try:
+                    body = await login.json(content_type=None)
+                    if "url" in body:
+                        raise DatadomeCaptcha(
+                            body["url"], "Login blocked by Datadome captcha."
+                        )
+                except DatadomeCaptcha:
+                    raise
+                except Exception:
+                    pass
+
             _LOGGER.error(
                 "Failed to get auth token! status_code=%s err=%s",
                 login.status,

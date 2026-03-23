@@ -8,6 +8,7 @@ from python_chargepoint.constants import DISCOVERY_API
 from python_chargepoint.exceptions import (
     LoginError,
     CommunicationError,
+    DatadomeCaptcha,
     InvalidSession,
 )
 
@@ -123,6 +124,24 @@ async def test_client_with_coulomb_token(
 
     assert client.coulomb_token == coulomb_token
     assert client.user_id == account_json["user"]["userId"]
+
+
+async def test_client_login_with_password_datadome(
+    aioresponses, global_config_json: dict, global_config: GlobalConfiguration
+):
+    aioresponses.post(DISCOVERY_API, status=200, payload=global_config_json)
+    aioresponses.post(
+        f"{global_config.endpoints.sso_endpoint}v1/user/login",
+        status=403,
+        payload={"url": "https://geo.captcha-delivery.com/captcha/?initialCid=123"},
+        content_type="application/json",
+    )
+
+    with pytest.raises(DatadomeCaptcha) as exc:
+        client = await ChargePoint.create("test")
+        await client.login_with_password("demo")
+
+    assert "captcha-delivery.com" in exc.value.captcha
 
 
 async def test_client_login_with_sso(
