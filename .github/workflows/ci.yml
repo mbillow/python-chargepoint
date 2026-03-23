@@ -38,6 +38,12 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      include:
+        # pydantic-core doesn't yet publish 3.14 wheels; allow failure until it does
+        - python-version: "3.14"
+          experimental: true
+      fail-fast: false
+    continue-on-error: ${{ matrix.experimental == true }}
     steps:
       - uses: actions/checkout@v4
 

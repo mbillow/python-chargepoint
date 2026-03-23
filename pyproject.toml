@@ -12,7 +12,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 aiohttp = "^3.9"
-pydantic = "^2.0"
+pydantic = "^2.12"
 click = "^8.1"
 
 [tool.poetry.scripts]
