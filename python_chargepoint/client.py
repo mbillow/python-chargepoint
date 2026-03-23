@@ -212,9 +212,6 @@ class ChargePoint:
 
     def _set_session_token(self, session_token: str):
         if session_token:
-            if len(session_token) not in  [32,43]:
-                raise ChargePointBaseException("Invalid session token format.")
-
             self._session.cookies.set("coulomb_sess", session_token)
 
     def _set_auth_token(self, auth_token: str):
