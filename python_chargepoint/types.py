@@ -384,6 +384,8 @@ class StationInfo(_CamelModel):
     parking_accessibility: str = ""
     stop_charge_supported: bool = False
     remote_start_charge: bool = False
+    shared_power: bool = False
+    reduced_power: bool = False
     station_price: Optional[StationPrice] = None
     device_software_version: str = ""
     last_charged_date: Optional[str] = None

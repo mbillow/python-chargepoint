@@ -136,6 +136,8 @@ def station_info_json():
         "parkingAccessibility": "NONE",
         "stopChargeSupported": True,
         "remoteStartCharge": True,
+        "sharedPower": True,
+        "reducedPower": False,
         "stationPrice": {
             "currencyCode": "USD",
             "energyFee": {
