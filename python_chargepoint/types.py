@@ -12,13 +12,21 @@ def _parse_ms_timestamp(v: float) -> datetime:
     return datetime.fromtimestamp(v / 1000, tz=timezone.utc)
 
 
-class _CamelModel(BaseModel):
+class _BaseModel(BaseModel):
+    """Base for all library models. Passes through undeclared API fields for diagnostic use."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class _CamelModel(_BaseModel):
     """Base for models whose API responses use camelCase field names."""
 
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, extra="allow"
+    )
 
 
-class ElectricVehicle(BaseModel):
+class ElectricVehicle(_BaseModel):
     make: str = ""
     model: str = ""
     primary_vehicle: bool = False
@@ -56,7 +64,7 @@ class User(_CamelModel):
     username: str = ""
 
 
-class AccountBalance(BaseModel):
+class AccountBalance(_BaseModel):
     account_number: str = Field("", alias="accountNumber")
     account_state: str = Field("", alias="accountState")
     amount: str = ""
@@ -158,14 +166,14 @@ class HomeChargerConfiguration(_CamelModel):
         return {**settings, "led_brightness": led_brightness}
 
 
-class Station(BaseModel):
+class Station(_BaseModel):
     id: int = Field(0, alias="deviceId")
     name: str = ""
     latitude: float = Field(0.0, alias="lat")
     longitude: float = Field(0.0, alias="lon")
 
 
-class UserChargingStatus(BaseModel):
+class UserChargingStatus(_BaseModel):
     session_id: int = Field(0, alias="sessionId")
     start_time: datetime = Field(
         default_factory=lambda: datetime.now(tz=timezone.utc), alias="startTimeUTC"
@@ -194,7 +202,7 @@ class UserChargingStatus(BaseModel):
         return self
 
 
-class VehicleInfo(BaseModel):
+class VehicleInfo(_BaseModel):
     vehicle_id: int = 0
     battery_capacity: float = 0.0
     make: str = ""
@@ -204,7 +212,7 @@ class VehicleInfo(BaseModel):
     is_primary_vehicle: bool = False
 
 
-class ChargingSessionUpdate(BaseModel):
+class ChargingSessionUpdate(_BaseModel):
     energy_kwh: float = 0.0
     power_kw: float = 0.0
     timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
@@ -215,20 +223,20 @@ class ChargingSessionUpdate(BaseModel):
         return _parse_ms_timestamp(v)
 
 
-class PowerUtilityPlan(BaseModel):
+class PowerUtilityPlan(_BaseModel):
     code: Union[str, int] = ""
     id: int = 0
     is_ev_plan: bool = False
     name: str = ""
 
 
-class PowerUtility(BaseModel):
+class PowerUtility(_BaseModel):
     id: int = 0
     name: str = ""
     plans: List[PowerUtilityPlan] = Field(default_factory=list)
 
 
-class MapFilter(BaseModel):
+class MapFilter(_BaseModel):
     disabled_parking: bool = False
     network_circuitelectric: bool = False
     connector_l2: bool = False
@@ -254,7 +262,7 @@ class MapFilter(BaseModel):
     connector_tesla: bool = False
 
 
-class StationPort(BaseModel):
+class StationPort(_BaseModel):
     status_v2: str = ""
     port_type: int = 0
     outlet_number: int = 0
@@ -263,12 +271,12 @@ class StationPort(BaseModel):
     status: str = ""
 
 
-class MaxPower(BaseModel):
+class MaxPower(_BaseModel):
     unit: str = ""
     max: float = 0.0
 
 
-class MapChargingInfo(BaseModel):
+class MapChargingInfo(_BaseModel):
     session_id: int = 0
     session_time: int = 0
     energy_kwh: float = 0.0
@@ -326,13 +334,13 @@ class StationNetwork(_CamelModel):
     in_network: bool = False
 
 
-class StationAddress(BaseModel):
+class StationAddress(_BaseModel):
     address1: str = ""
     city: str = ""
     state: str = ""
 
 
-class StationPricingFee(BaseModel):
+class StationPricingFee(_BaseModel):
     amount: float = 0.0
     unit: str = ""
 
@@ -345,7 +353,7 @@ class StationTouEntry(_CamelModel):
     fee: StationPricingFee = Field(default_factory=StationPricingFee)
 
 
-class StationTax(BaseModel):
+class StationTax(_BaseModel):
     name: str = ""
     percent: float = 0.0
 
@@ -391,7 +399,7 @@ class StationInfo(_CamelModel):
     last_charged_date: Optional[str] = None
 
 
-class MapStation(BaseModel):
+class MapStation(_BaseModel):
     device_id: int = 0
     lat: float = 0.0
     lon: float = 0.0
