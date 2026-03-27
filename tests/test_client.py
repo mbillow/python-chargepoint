@@ -554,6 +554,98 @@ async def test_client_get_home_charger_config_failure(
     assert exc.value.response.status == 500
 
 
+async def test_client_get_home_charger_schedule(
+    aioresponses, authenticated_client: ChargePoint, home_charger_schedule_json: dict
+):
+    aioresponses.get(
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/schedule/charger/1234567890/schedule",
+        status=200,
+        payload=home_charger_schedule_json,
+    )
+
+    schedule = await authenticated_client.get_home_charger_schedule(1234567890)
+
+    assert schedule.schedule_enabled is False
+    assert schedule.has_utility_info is True
+    assert schedule.default_schedule is not None
+    assert schedule.default_schedule.weekdays.start_time == "23:00"
+    assert schedule.default_schedule.weekdays.end_time == "07:00"
+    assert schedule.default_schedule.weekends.start_time == "19:00"
+    assert schedule.default_schedule.weekends.end_time == "15:00"
+
+
+async def test_client_get_home_charger_schedule_failure(
+    aioresponses, authenticated_client: ChargePoint
+):
+    aioresponses.get(
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/schedule/charger/1234567890/schedule",
+        status=500,
+    )
+
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.get_home_charger_schedule(1234567890)
+
+    assert exc.value.response.status == 500
+
+
+async def test_client_set_home_charger_schedule(
+    aioresponses,
+    authenticated_client: ChargePoint,
+    home_charger_schedule_set_json: dict,
+):
+    aioresponses.put(
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/schedule/charger/1234567890/schedule",
+        status=200,
+        payload=home_charger_schedule_set_json,
+    )
+
+    schedule = await authenticated_client.set_home_charger_schedule(
+        1234567890, "23:00", "07:00", "19:00", "15:00"
+    )
+
+    assert schedule.schedule_enabled is True
+    assert schedule.user_schedule is not None
+    assert schedule.user_schedule.weekdays.start_time == "23:00"
+    assert schedule.user_schedule.weekdays.end_time == "07:00"
+    assert schedule.user_schedule.weekends.start_time == "19:00"
+    assert schedule.user_schedule.weekends.end_time == "15:00"
+
+
+async def test_client_set_home_charger_schedule_failure(
+    aioresponses, authenticated_client: ChargePoint
+):
+    aioresponses.put(
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/schedule/charger/1234567890/schedule",
+        status=500,
+    )
+
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.set_home_charger_schedule(
+            1234567890, "23:00", "07:00", "19:00", "15:00"
+        )
+
+    assert exc.value.response.status == 500
+
+
+async def test_client_disable_home_charger_schedule(
+    aioresponses, authenticated_client: ChargePoint, home_charger_schedule_json: dict
+):
+    aioresponses.put(
+        authenticated_client.global_config.endpoints.hcpo_hcm_endpoint
+        / "api/v1/schedule/charger/1234567890/schedule",
+        status=200,
+        payload={**home_charger_schedule_json, "scheduleEnabled": False},
+    )
+
+    schedule = await authenticated_client.disable_home_charger_schedule(1234567890)
+
+    assert schedule.schedule_enabled is False
+
+
 async def test_client_get_station(
     aioresponses, authenticated_client: ChargePoint, station_info_json: dict
 ):

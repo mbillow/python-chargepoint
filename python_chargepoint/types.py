@@ -166,6 +166,28 @@ class HomeChargerConfiguration(_CamelModel):
         return {**settings, "led_brightness": led_brightness}
 
 
+class ChargeScheduleWindow(_CamelModel):
+    start_time: str = ""
+    end_time: str = ""
+    start_weekday: Optional[int] = None
+    end_weekday: Optional[int] = None
+
+
+class ChargeSchedule(_CamelModel):
+    weekdays: ChargeScheduleWindow = Field(default_factory=ChargeScheduleWindow)
+    weekends: ChargeScheduleWindow = Field(default_factory=ChargeScheduleWindow)
+
+
+class HomeChargerSchedule(_CamelModel):
+    has_tou_pricing: bool = False
+    schedule_enabled: bool = False
+    has_utility_info: bool = False
+    based_on_utility: Optional["PowerUtility"] = None
+    default_schedule: Optional[ChargeSchedule] = None
+    user_schedule: Optional[ChargeSchedule] = None
+    utility_schedule: Optional[ChargeSchedule] = None
+
+
 class Station(_BaseModel):
     id: int = Field(0, alias="deviceId")
     name: str = ""

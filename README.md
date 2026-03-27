@@ -151,6 +151,29 @@ await client.set_led_brightness(charger_id, 3)  # 60%
 await client.restart_home_charger(charger_id)
 ```
 
+#### Charging schedule
+
+```python
+schedule = await client.get_home_charger_schedule(charger_id)
+print(schedule.schedule_enabled)  # False
+if schedule.default_schedule:
+    print(schedule.default_schedule.weekdays.start_time)  # "23:00"
+    print(schedule.default_schedule.weekdays.end_time)    # "07:00"
+    print(schedule.default_schedule.weekends.start_time)  # "19:00"
+    print(schedule.default_schedule.weekends.end_time)    # "15:00"
+
+# Enable a schedule
+schedule = await client.set_home_charger_schedule(
+    charger_id,
+    weekday_start="23:00", weekday_end="07:00",
+    weekend_start="19:00", weekend_end="15:00",
+)
+print(schedule.schedule_enabled)  # True
+
+# Disable the schedule
+await client.disable_home_charger_schedule(charger_id)
+```
+
 ---
 
 ### Charging Status and Sessions
@@ -306,6 +329,9 @@ chargepoint charger config <charger_id>
 chargepoint charger set-amperage <charger_id> <amps>
 chargepoint charger set-led <charger_id> <level>   # 0=off 1=20% 2=40% 3=60% 4=80% 5=100%
 chargepoint charger restart <charger_id>
+chargepoint charger schedule <charger_id>
+chargepoint charger set-schedule <charger_id> --weekday-start 23:00 --weekday-end 07:00 --weekend-start 19:00 --weekend-end 15:00
+chargepoint charger disable-schedule <charger_id>
 
 # Sessions
 chargepoint session get <session_id>

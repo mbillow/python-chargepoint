@@ -13,6 +13,7 @@ from .types import (
     Account,
     ElectricVehicle,
     HomeChargerConfiguration,
+    HomeChargerSchedule,
     HomeChargerStatus,
     HomeChargerTechnicalInfo,
     MapFilter,
@@ -150,6 +151,18 @@ class ChargePoint:
 
         return response
 
+    async def _raise_for_status(
+        self, response: aiohttp.ClientResponse, message: str
+    ) -> None:
+        if response.status != 200:
+            text = await response.text()
+            _LOGGER.error(
+                "status_code=%s err=%s",
+                response.status,
+                text,
+            )
+            raise CommunicationError(response=response, message=message)
+
     async def _init_account_parameters(self):
         account: Account = await self.get_account()
         self._user_id = account.user.user_id
@@ -231,13 +244,7 @@ class ChargePoint:
             self._global_config.endpoints.sso_endpoint / "v1/user/logout",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to log out! status_code=%s err=%s", response.status, text
-            )
-            raise CommunicationError(response=response, message="Failed to log out!")
-
+        await self._raise_for_status(response, "Failed to log out!")
         await response.release()
         self._session.cookie_jar.clear()
         self._user_id = None
@@ -246,17 +253,9 @@ class ChargePoint:
         _LOGGER.debug("Discovering account region for username %s", username)
         request = {"username": username}
         response = await self._request("POST", DISCOVERY_API, json=request)
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to discover region! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response,
-                message="Failed to discover region for provided username!",
-            )
+        await self._raise_for_status(
+            response, "Failed to discover region for provided username!"
+        )
         config = GlobalConfiguration.model_validate(await response.json())
         _LOGGER.debug(
             "Discovered account region: %s / %s (%s)",
@@ -274,17 +273,7 @@ class ChargePoint:
             self._global_config.endpoints.accounts_endpoint / "v1/driver/profile/user",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get account information! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get user information."
-            )
-
+        await self._raise_for_status(response, "Failed to get user information.")
         return Account.model_validate(await response.json())
 
     @_require_login
@@ -295,17 +284,7 @@ class ChargePoint:
             self._global_config.endpoints.accounts_endpoint / "v1/driver/vehicle",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to list vehicles! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to retrieve EVs."
-            )
-
+        await self._raise_for_status(response, "Failed to retrieve EVs.")
         evs = await response.json()
         return [ElectricVehicle.model_validate(ev) for ev in evs]
 
@@ -318,17 +297,7 @@ class ChargePoint:
             / f"api/v1/configuration/users/{self.user_id}/chargers",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get home chargers! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to retrieve Home Flex chargers."
-            )
-
+        await self._raise_for_status(response, "Failed to retrieve Home Flex chargers.")
         data = (await response.json())["data"]
         chargers = [int(item["id"]) for item in data]
         _LOGGER.debug(
@@ -347,17 +316,7 @@ class ChargePoint:
             / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/status",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to determine home charger status! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get home charger status."
-            )
-
+        await self._raise_for_status(response, "Failed to get home charger status.")
         status = await response.json()
         _LOGGER.debug(status)
         return HomeChargerStatus.model_validate({"charger_id": charger_id, **status})
@@ -373,17 +332,7 @@ class ChargePoint:
             / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/technical-info",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get home charger tech info! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get home charger tech info."
-            )
-
+        await self._raise_for_status(response, "Failed to get home charger tech info.")
         return HomeChargerTechnicalInfo.model_validate(await response.json())
 
     @_require_login
@@ -394,17 +343,7 @@ class ChargePoint:
             "POST", self._global_config.endpoints.mapcache_endpoint / "v2", json=request
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get account charging status! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get user charging status."
-            )
-
+        await self._raise_for_status(response, "Failed to get user charging status.")
         status = await response.json()
         if not status["user_status"]:
             _LOGGER.debug("No user status returned, assuming not charging.")
@@ -423,17 +362,7 @@ class ChargePoint:
             json={"chargeAmperageLimit": amperage_limit},
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to set amperage limit! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to set amperage limit."
-            )
-
+        await self._raise_for_status(response, "Failed to set amperage limit.")
         await response.release()
 
     @_require_login
@@ -452,17 +381,7 @@ class ChargePoint:
             json={"ledBrightnessLevel": level},
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to set LED brightness! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to set LED brightness."
-            )
-
+        await self._raise_for_status(response, "Failed to set LED brightness.")
         await response.release()
 
     @_require_login
@@ -474,17 +393,7 @@ class ChargePoint:
             / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/restart",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to restart charger! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to restart charger."
-            )
-
+        await self._raise_for_status(response, "Failed to restart charger.")
         await response.release()
 
     @_require_login
@@ -498,18 +407,60 @@ class ChargePoint:
             / f"api/v1/configuration/users/{self.user_id}/chargers/{charger_id}/configurations",
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get charger configuration! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get charger configuration."
-            )
-
+        await self._raise_for_status(response, "Failed to get charger configuration.")
         return HomeChargerConfiguration.model_validate(await response.json())
+
+    @_require_login
+    async def get_home_charger_schedule(self, charger_id: int) -> HomeChargerSchedule:
+        _LOGGER.debug("Getting schedule for charger: %s", charger_id)
+        response = await self._request(
+            "GET",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/schedule/charger/{charger_id}/schedule",
+        )
+
+        await self._raise_for_status(response, "Failed to get charger schedule.")
+        return HomeChargerSchedule.model_validate(await response.json())
+
+    @_require_login
+    async def set_home_charger_schedule(
+        self,
+        charger_id: int,
+        weekday_start: str,
+        weekday_end: str,
+        weekend_start: str,
+        weekend_end: str,
+    ) -> HomeChargerSchedule:
+        _LOGGER.debug("Setting schedule for charger: %s", charger_id)
+        response = await self._request(
+            "PUT",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/schedule/charger/{charger_id}/schedule",
+            json={
+                "schedule": {
+                    "weekdays": {"startTime": weekday_start, "endTime": weekday_end},
+                    "weekends": {"startTime": weekend_start, "endTime": weekend_end},
+                }
+            },
+        )
+
+        await self._raise_for_status(response, "Failed to set charger schedule.")
+        return HomeChargerSchedule.model_validate(await response.json())
+
+    @_require_login
+    async def disable_home_charger_schedule(
+        self, charger_id: int
+    ) -> HomeChargerSchedule:
+        _LOGGER.debug("Disabling schedule for charger: %s", charger_id)
+        response = await self._request(
+            "PUT",
+            self._global_config.endpoints.hcpo_hcm_endpoint
+            / f"api/v1/schedule/charger/{charger_id}/schedule",
+            json={},
+        )
+
+        await self._raise_for_status(response, "Failed to disable charger schedule.")
+        return HomeChargerSchedule.model_validate(await response.json())
 
     @_require_login
     async def get_charging_session(self, session_id: int) -> ChargingSession:
@@ -530,17 +481,7 @@ class ChargePoint:
         ).update_query({"deviceId": str(device_id), "use_cache": "false"})
         response = await self._request("GET", url)
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get station info! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get station info."
-            )
-
+        await self._raise_for_status(response, "Failed to get station info.")
         data = await response.json()
         return StationInfo.model_validate(data)
 
@@ -576,17 +517,7 @@ class ChargePoint:
             "POST", self._global_config.endpoints.mapcache_endpoint / "v2", json=request
         )
 
-        if response.status != 200:
-            text = await response.text()
-            _LOGGER.error(
-                "Failed to get nearby stations! status_code=%s err=%s",
-                response.status,
-                text,
-            )
-            raise CommunicationError(
-                response=response, message="Failed to get nearby stations."
-            )
-
+        await self._raise_for_status(response, "Failed to get nearby stations.")
         data = await response.json()
         stations = data["map_data"].get("stations", [])
         return [MapStation.model_validate(s) for s in stations]

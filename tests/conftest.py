@@ -442,3 +442,77 @@ async def charging_session(
     )
 
     return await authenticated_client.get_charging_session(session_id=1)
+
+
+@pytest.fixture
+def home_charger_schedule_json():
+    return {
+        "hasTouPricing": False,
+        "defaultSchedule": {
+            "weekdays": {
+                "startWeekday": 1,
+                "startTime": "23:00",
+                "endWeekday": 5,
+                "endTime": "07:00",
+            },
+            "weekends": {
+                "startWeekday": 6,
+                "startTime": "19:00",
+                "endWeekday": 7,
+                "endTime": "15:00",
+            },
+        },
+        "basedOnUtility": {
+            "plans": [
+                {"code": "R", "name": "Residential", "id": 80693, "isEvPlan": False}
+            ],
+            "name": "Test Utility",
+            "id": 22,
+        },
+        "hasUtilityInfo": True,
+        "scheduleEnabled": False,
+    }
+
+
+@pytest.fixture
+def home_charger_schedule_set_json():
+    return {
+        "hasTouPricing": False,
+        "userSchedule": {
+            "weekdays": {
+                "startWeekday": 1,
+                "startTime": "23:00",
+                "endWeekday": 5,
+                "endTime": "07:00",
+            },
+            "weekends": {
+                "startWeekday": 6,
+                "startTime": "19:00",
+                "endWeekday": 7,
+                "endTime": "15:00",
+            },
+        },
+        "utilitySchedule": {
+            "weekdays": {
+                "startWeekday": 1,
+                "startTime": "23:00",
+                "endWeekday": 5,
+                "endTime": "07:00",
+            },
+            "weekends": {
+                "startWeekday": 6,
+                "startTime": "19:00",
+                "endWeekday": 7,
+                "endTime": "15:00",
+            },
+        },
+        "basedOnUtility": {
+            "plans": [
+                {"code": "R", "name": "Residential", "id": 80693, "isEvPlan": False}
+            ],
+            "name": "Test Utility",
+            "id": 22,
+        },
+        "hasUtilityInfo": True,
+        "scheduleEnabled": True,
+    }

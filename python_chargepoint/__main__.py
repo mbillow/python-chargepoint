@@ -519,6 +519,115 @@ async def charger_restart(ctx, charger_id: int) -> None:
         await client.close()
 
 
+@charger.command("schedule")
+@click.argument("charger_id", type=int)
+@click.pass_context
+@async_cmd
+async def charger_schedule(ctx, charger_id: int) -> None:
+    """Show the charging schedule for a home charger."""
+    client = await _make_client(ctx.obj["debug"])
+    try:
+        schedule = await client.get_home_charger_schedule(charger_id)
+        if ctx.obj["as_json"]:
+            _dump_json(schedule)
+        else:
+            click.echo(f"Enabled:  {schedule.schedule_enabled}")
+            for label, window in [
+                (
+                    "Weekdays",
+                    (
+                        schedule.default_schedule.weekdays
+                        if schedule.default_schedule
+                        else None
+                    ),
+                ),
+                (
+                    "Weekends",
+                    (
+                        schedule.default_schedule.weekends
+                        if schedule.default_schedule
+                        else None
+                    ),
+                ),
+            ]:
+                if window:
+                    click.echo(f"{label}: {window.start_time} – {window.end_time}")
+    except CommunicationError as e:
+        click.echo(f"Error: {e.message}", err=True)
+        sys.exit(1)
+    finally:
+        await client.close()
+
+
+@charger.command("set-schedule")
+@click.argument("charger_id", type=int)
+@click.option(
+    "--weekday-start", required=True, help='Weekday charge start time, e.g. "23:00"'
+)
+@click.option(
+    "--weekday-end", required=True, help='Weekday charge end time, e.g. "07:00"'
+)
+@click.option(
+    "--weekend-start", required=True, help='Weekend charge start time, e.g. "19:00"'
+)
+@click.option(
+    "--weekend-end", required=True, help='Weekend charge end time, e.g. "15:00"'
+)
+@click.pass_context
+@async_cmd
+async def charger_set_schedule(
+    ctx,
+    charger_id: int,
+    weekday_start: str,
+    weekday_end: str,
+    weekend_start: str,
+    weekend_end: str,
+) -> None:
+    """Set the charging schedule for a home charger."""
+    client = await _make_client(ctx.obj["debug"])
+    try:
+        schedule = await client.set_home_charger_schedule(
+            charger_id, weekday_start, weekday_end, weekend_start, weekend_end
+        )
+        if ctx.obj["as_json"]:
+            _dump_json(schedule)
+        else:
+            click.echo(f"Schedule enabled: {schedule.schedule_enabled}")
+            if schedule.user_schedule:
+                click.echo(
+                    f"Weekdays: {schedule.user_schedule.weekdays.start_time} – {schedule.user_schedule.weekdays.end_time}"
+                )
+                click.echo(
+                    f"Weekends: {schedule.user_schedule.weekends.start_time} – {schedule.user_schedule.weekends.end_time}"
+                )
+    except CommunicationError as e:
+        click.echo(f"Error: {e.message}", err=True)
+        sys.exit(1)
+    finally:
+        await client.close()
+
+
+@charger.command("disable-schedule")
+@click.argument("charger_id", type=int)
+@click.confirmation_option(prompt="Disable the charging schedule?")
+@click.pass_context
+@async_cmd
+async def charger_disable_schedule(ctx, charger_id: int) -> None:
+    """Disable the charging schedule for a home charger."""
+    client = await _make_client(ctx.obj["debug"])
+    try:
+        schedule = await client.disable_home_charger_schedule(charger_id)
+        if ctx.obj["as_json"]:
+            _dump_json(schedule)
+        else:
+            click.echo(f"Schedule enabled: {schedule.schedule_enabled}")
+    except CommunicationError as e:
+        click.echo(f"Error: {e.message}", err=True)
+        sys.exit(1)
+    finally:
+        await client.close()
+
+
 # ---------------------------------------------------------------------------
 # session subgroup
 # ---------------------------------------------------------------------------
