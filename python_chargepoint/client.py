@@ -41,6 +41,7 @@ USER_AGENT = f"{MODULE_NAME}/{MODULE_VERSION}"
 COULOMB_SESSION = "coulomb_sess"
 SSO_SESSION = "auth-session"
 COOKIE_DOMAIN = ".chargepoint.com"
+_COULOMB_SESSION_MAX_AGE = 10 * 365 * 24 * 3600
 
 
 def _require_login(func):
@@ -115,6 +116,7 @@ class ChargePoint:
             cookie[COULOMB_SESSION] = parsed
             cookie[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
             cookie[COULOMB_SESSION]["path"] = "/"
+            cookie[COULOMB_SESSION]["max-age"] = str(_COULOMB_SESSION_MAX_AGE)
             self._session.cookie_jar.update_cookies(
                 cookie, response_url=URL(f"https://account{COOKIE_DOMAIN}/")
             )

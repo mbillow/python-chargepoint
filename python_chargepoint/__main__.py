@@ -13,7 +13,6 @@ from .constants import _LOGGER
 from .exceptions import CommunicationError, InvalidSession, LoginError
 from .types import MapFilter, ZoomBounds
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

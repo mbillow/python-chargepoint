@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-chargepoint"
-version = "2.3.1"
+version = "2.3.2"
 description = "A simple, Pythonic wrapper for the ChargePoint API."
 authors = ["Marc Billow <mbillow@users.noreply.github.compoetry>"]
 license = "MIT"
@@ -20,7 +20,7 @@ chargepoint = "python_chargepoint.__main__:cli"
 
 [tool.poetry.group.dev.dependencies]
 tox = "^3.24.5"
-black = "^25.1.0"
+black = "^26.1.0"
 pytest = "^7.0"
 aioresponses = "^0.7"
 pytest-asyncio = "^0.23"

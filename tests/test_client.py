@@ -1,8 +1,17 @@
 import logging
+import time
+from http.cookies import SimpleCookie
 
+import aiohttp
 import pytest
+from yarl import URL
 
 from python_chargepoint import ChargePoint
+from python_chargepoint.client import (
+    COOKIE_DOMAIN,
+    COULOMB_SESSION,
+    _COULOMB_SESSION_MAX_AGE,
+)
 from python_chargepoint.global_config import GlobalConfiguration
 from python_chargepoint.constants import DISCOVERY_API
 from python_chargepoint.exceptions import (
@@ -13,6 +22,24 @@ from python_chargepoint.exceptions import (
 )
 
 from .test_session import _add_start_function_responses
+
+_COOKIE_URL = URL(f"https://account{COOKIE_DOMAIN}/")
+
+
+def _coulomb_expiry(jar: aiohttp.CookieJar) -> float:
+    """Return the expiry timestamp aiohttp recorded for the coulomb_sess cookie."""
+    key = next(k for k in jar._expirations if k[2] == COULOMB_SESSION)
+    return jar._expirations[key]
+
+
+def _make_coulomb_cookie(value: str, max_age: str | None = None) -> SimpleCookie:
+    cookie: SimpleCookie = SimpleCookie()
+    cookie[COULOMB_SESSION] = value
+    cookie[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
+    cookie[COULOMB_SESSION]["path"] = "/"
+    if max_age is not None:
+        cookie[COULOMB_SESSION]["max-age"] = max_age
+    return cookie
 
 
 async def test_client_auth_wrapper(aioresponses, authenticated_client: ChargePoint):
@@ -124,6 +151,62 @@ async def test_client_with_coulomb_token(
 
     assert client.coulomb_token == coulomb_token
     assert client.user_id == account_json["user"]["userId"]
+
+
+async def test_set_coulomb_token_raises_on_empty():
+    async with aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar()) as session:
+        client = ChargePoint("test", session=session)
+        with pytest.raises(ValueError):
+            client._set_coulomb_token("")
+
+
+async def test_set_coulomb_token_stores_cookie():
+    async with aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar()) as session:
+        client = ChargePoint("test", session=session)
+        client._set_coulomb_token("test-token")
+        assert client.coulomb_token == "test-token"
+
+
+async def test_update_cookies_without_max_age_does_not_reset_expiry():
+    """
+    Root cause: calling update_cookies() without max-age leaves an existing
+    expiry timestamp untouched. This demonstrates the bug that the fix addresses.
+    """
+    jar = aiohttp.CookieJar()
+
+    jar.update_cookies(
+        _make_coulomb_cookie("tok", max_age="1"), response_url=_COOKIE_URL
+    )
+
+    # Update value only — no max-age (this is the old broken behaviour)
+    jar.update_cookies(_make_coulomb_cookie("tok"), response_url=_COOKIE_URL)
+
+    # The short expiry set by the first call is still in the jar, not cleared.
+    assert _coulomb_expiry(jar) < time.time() + 5
+
+
+async def test_set_coulomb_token_survives_original_server_expiry():
+    """
+    ChargePoint's server sets coulomb_sess with Max-Age=7200. The fix sets
+    an explicit long max-age in _set_coulomb_token so that the subsequent
+    update_cookies() call overwrites the expiry timestamp in the jar.
+    """
+    async with aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar()) as session:
+        client = ChargePoint("test", session=session)
+
+        # Simulate what the server sends: short-lived cookie
+        session.cookie_jar.update_cookies(
+            _make_coulomb_cookie("tok", max_age="1"), response_url=_COOKIE_URL
+        )
+
+        assert client.coulomb_token == "tok"
+
+        # Our fix: re-set with a long max-age, overwriting the expiry timestamp
+        client._set_coulomb_token("tok")
+
+        assert _coulomb_expiry(session.cookie_jar) > time.time() + (
+            _COULOMB_SESSION_MAX_AGE - 60
+        )
 
 
 async def test_request_refreshes_coulomb_token(
