@@ -129,6 +129,13 @@ class ChargePoint:
         _LOGGER.debug("[%s] %s", method, url)
         headers = {**self._request_headers, **kwargs.pop("headers", {})}
         response = await self._session.request(method, url, headers=headers, **kwargs)
+
+        # ChargePoint servers return coulomb_sess with Max-Age=7200 on every response.
+        # Re-set it without expiry so the cookie jar never evicts it.
+        refreshed = response.cookies.get(COULOMB_SESSION)
+        if refreshed and refreshed.value:
+            self._set_coulomb_token(refreshed.value)
+
         _LOGGER.debug("Status: %d", response.status)
         _LOGGER.debug("Request Headers: %s", response.request_info.headers)
         _LOGGER.debug("Response Headers: %s", response.headers)

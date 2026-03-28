@@ -126,6 +126,27 @@ async def test_client_with_coulomb_token(
     assert client.user_id == account_json["user"]["userId"]
 
 
+async def test_request_refreshes_coulomb_token(
+    aioresponses,
+    authenticated_client: ChargePoint,
+    account_json: dict,
+    global_config: GlobalConfiguration,
+):
+    """Server returns coulomb_sess with Max-Age=7200 on every response.
+    _request must re-set it without expiry so the cookie is never evicted."""
+    new_token = "rEfReSheDbAsE64EnCodEdDaTaToKeNrEfReSheDbAsE64En#D???????#RNA-US"
+    aioresponses.get(
+        f"{global_config.endpoints.accounts_endpoint}v1/driver/profile/user",
+        status=200,
+        payload=account_json,
+        headers={"Set-Cookie": f"coulomb_sess={new_token}; Max-Age=7200; Path=/"},
+    )
+
+    await authenticated_client.get_account()
+
+    assert authenticated_client.coulomb_token == new_token
+
+
 async def test_client_login_with_password_datadome(
     aioresponses, global_config_json: dict, global_config: GlobalConfiguration
 ):
