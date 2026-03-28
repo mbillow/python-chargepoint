@@ -1,5 +1,5 @@
-import asyncio
 import logging
+import time
 from http.cookies import SimpleCookie
 
 import aiohttp
@@ -7,7 +7,11 @@ import pytest
 from yarl import URL
 
 from python_chargepoint import ChargePoint
-from python_chargepoint.client import COULOMB_SESSION, COOKIE_DOMAIN
+from python_chargepoint.client import (
+    COOKIE_DOMAIN,
+    COULOMB_SESSION,
+    _COULOMB_SESSION_MAX_AGE,
+)
 from python_chargepoint.global_config import GlobalConfiguration
 from python_chargepoint.constants import DISCOVERY_API
 from python_chargepoint.exceptions import (
@@ -20,6 +24,22 @@ from python_chargepoint.exceptions import (
 from .test_session import _add_start_function_responses
 
 _COOKIE_URL = URL(f"https://account{COOKIE_DOMAIN}/")
+
+
+def _coulomb_expiry(jar: aiohttp.CookieJar) -> float:
+    """Return the expiry timestamp aiohttp recorded for the coulomb_sess cookie."""
+    key = next(k for k in jar._expirations if k[2] == COULOMB_SESSION)
+    return jar._expirations[key]
+
+
+def _make_coulomb_cookie(value: str, max_age: str | None = None) -> SimpleCookie:
+    cookie: SimpleCookie = SimpleCookie()
+    cookie[COULOMB_SESSION] = value
+    cookie[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
+    cookie[COULOMB_SESSION]["path"] = "/"
+    if max_age is not None:
+        cookie[COULOMB_SESSION]["max-age"] = max_age
+    return cookie
 
 
 async def test_client_auth_wrapper(aioresponses, authenticated_client: ChargePoint):
@@ -154,57 +174,38 @@ async def test_update_cookies_without_max_age_does_not_reset_expiry():
     """
     jar = aiohttp.CookieJar()
 
-    short: SimpleCookie = SimpleCookie()
-    short[COULOMB_SESSION] = "tok"
-    short[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
-    short[COULOMB_SESSION]["path"] = "/"
-    short[COULOMB_SESSION]["max-age"] = "1"
-    jar.update_cookies(short, response_url=_COOKIE_URL)
+    jar.update_cookies(
+        _make_coulomb_cookie("tok", max_age="1"), response_url=_COOKIE_URL
+    )
 
     # Update value only — no max-age (this is the old broken behaviour)
-    no_expiry: SimpleCookie = SimpleCookie()
-    no_expiry[COULOMB_SESSION] = "tok"
-    no_expiry[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
-    no_expiry[COULOMB_SESSION]["path"] = "/"
-    jar.update_cookies(no_expiry, response_url=_COOKIE_URL)
+    jar.update_cookies(_make_coulomb_cookie("tok"), response_url=_COOKIE_URL)
 
-    await asyncio.sleep(1.5)
-
-    cookies = jar.filter_cookies(_COOKIE_URL)
-    assert cookies.get(COULOMB_SESSION) is None, (
-        "Without an explicit max-age the original short expiry survives; "
-        "cookie should have been evicted (this proves the bug exists)"
-    )
+    # The short expiry set by the first call is still in the jar, not cleared.
+    assert _coulomb_expiry(jar) < time.time() + 5
 
 
 async def test_set_coulomb_token_survives_original_server_expiry():
     """
     ChargePoint's server sets coulomb_sess with Max-Age=7200. The fix sets
     an explicit long max-age in _set_coulomb_token so that the subsequent
-    update_cookies() call overwrites the expiry timestamp. This test uses a
-    1-second server expiry to verify the cookie outlives it.
+    update_cookies() call overwrites the expiry timestamp in the jar.
     """
     async with aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar()) as session:
         client = ChargePoint("test", session=session)
 
-        # Simulate what the server sends (short expiry for test speed)
-        server_cookie: SimpleCookie = SimpleCookie()
-        server_cookie[COULOMB_SESSION] = "tok"
-        server_cookie[COULOMB_SESSION]["domain"] = COOKIE_DOMAIN
-        server_cookie[COULOMB_SESSION]["path"] = "/"
-        server_cookie[COULOMB_SESSION]["max-age"] = "1"
-        session.cookie_jar.update_cookies(server_cookie, response_url=_COOKIE_URL)
+        # Simulate what the server sends: short-lived cookie
+        session.cookie_jar.update_cookies(
+            _make_coulomb_cookie("tok", max_age="1"), response_url=_COOKIE_URL
+        )
 
         assert client.coulomb_token == "tok"
 
-        # Our fix: re-set with a long max-age
+        # Our fix: re-set with a long max-age, overwriting the expiry timestamp
         client._set_coulomb_token("tok")
 
-        await asyncio.sleep(1.5)
-
-        assert client.coulomb_token == "tok", (
-            "coulomb_sess was evicted after the original server expiry; "
-            "_set_coulomb_token must set an explicit long max-age"
+        assert _coulomb_expiry(session.cookie_jar) > time.time() + (
+            _COULOMB_SESSION_MAX_AGE - 60
         )
 
 
