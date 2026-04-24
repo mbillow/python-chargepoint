@@ -156,6 +156,23 @@ async def test_get_charging_session_error_body(
         await authenticated_client.get_charging_session(session_id=1)
 
 
+async def test_get_charging_session_empty_status(
+    aioresponses, authenticated_client: ChargePoint
+):
+    """API returns empty charging_status dict when no session is active (e.g. charger idle)."""
+    aioresponses.post(
+        authenticated_client.global_config.endpoints.internal_api_gateway_endpoint
+        / "driver-bff/v1/sessions/1",
+        status=200,
+        payload={"charging_status": {}},
+    )
+
+    with pytest.raises(CommunicationError) as exc:
+        await authenticated_client.get_charging_session(session_id=1)
+
+    assert "No active session data" in exc.value.message
+
+
 async def test_get_charging_session_no_utility(
     aioresponses, authenticated_client: ChargePoint, charging_status_json: dict
 ):
