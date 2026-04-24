@@ -255,7 +255,11 @@ class ChargingSession:
         json_data = await response.json()
         status = json_data.get("charging_status", {})
 
-        if "charging_status" not in json_data or "error_message" in status or "error" in status:
+        if (
+            "charging_status" not in json_data
+            or "error_message" in status
+            or "error" in status
+        ):
             raise CommunicationError(
                 response=response, message="Failed to get charging session data."
             )
