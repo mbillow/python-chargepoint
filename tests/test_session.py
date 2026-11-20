@@ -4,10 +4,10 @@ from typing import Optional
 
 import pytest
 
-from python_chargepoint import ChargePoint
+from python_chargepoint import ChargePoint, session as session_module
+from python_chargepoint.exceptions import APIError, CommunicationError
 from python_chargepoint.global_config import GlobalConfiguration
 from python_chargepoint.session import ChargingSession, _send_command
-from python_chargepoint.exceptions import CommunicationError
 
 
 def _add_start_function_responses(
@@ -125,6 +125,70 @@ async def test_start_session(
     new = await ChargingSession.start(client=authenticated_client, device_id=1)
     assert new.session_id == 1
     assert "Successfully confirmed start command." in caplog.text
+
+
+@pytest.mark.parametrize("pending", ["missing", "wrong_device", "missing_details"])
+async def test_start_polls_until_requested_session_is_visible(
+    aioresponses,
+    authenticated_client,
+    user_charging_status_json,
+    charging_status_json,
+    monkeypatch,
+    pending,
+):
+    monkeypatch.setattr(session_module, "_START_SESSION_POLL_INTERVAL", 0)
+    config = authenticated_client.global_config
+    _add_start_function_responses(aioresponses, config)
+    status_url = config.endpoints.mapcache_endpoint / "v2"
+    session_url = (
+        config.endpoints.internal_api_gateway_endpoint / "driver-bff/v1/sessions"
+    )
+    first_status = {}
+    if pending == "wrong_device":
+        first_status = {
+            "charging": {**user_charging_status_json["charging"], "sessionId": 2}
+        }
+        aioresponses.post(
+            session_url / "2",
+            payload={"charging_status": {**charging_status_json, "device_id": 2}},
+        )
+    elif pending == "missing_details":
+        first_status = user_charging_status_json
+        aioresponses.post(
+            session_url / "1",
+            payload={"charging_status": {"error_message": "Session data pending"}},
+        )
+    aioresponses.post(status_url, payload={"user_status": first_status})
+    aioresponses.post(status_url, payload={"user_status": user_charging_status_json})
+    aioresponses.post(
+        session_url / "1", payload={"charging_status": charging_status_json}
+    )
+
+    session = await authenticated_client.start_charging_session(device_id=1)
+    assert (session.session_id, session.device_id) == (1, 1)
+    start_url = config.endpoints.accounts_endpoint / "v1/driver/station/startsession"
+    starts = aioresponses.requests[("POST", start_url)]
+    assert [request.kwargs["json"] for request in starts] == [{"deviceId": 1}]
+    assert len(aioresponses.requests[("POST", status_url)]) == 2
+
+
+async def test_acknowledged_start_with_no_session_times_out_without_resending(
+    aioresponses, authenticated_client, monkeypatch
+):
+    monkeypatch.setattr(session_module, "_START_SESSION_POLL_INTERVAL", 0.005)
+    monkeypatch.setattr(session_module, "_START_SESSION_LOOKUP_TIMEOUT", 0.05)
+    config = authenticated_client.global_config
+    _add_start_function_responses(aioresponses, config)
+    status_url = config.endpoints.mapcache_endpoint / "v2"
+    aioresponses.post(status_url, payload={"user_status": {}}, repeat=True)
+
+    with pytest.raises(APIError, match="Start was acknowledged"):
+        await authenticated_client.start_charging_session(device_id=1)
+
+    start_url = config.endpoints.accounts_endpoint / "v1/driver/station/startsession"
+    starts = aioresponses.requests[("POST", start_url)]
+    assert [request.kwargs["json"] for request in starts] == [{"deviceId": 1}]
+    assert ("POST", status_url) in aioresponses.requests
 
 
 async def test_get_charging_session_error(
