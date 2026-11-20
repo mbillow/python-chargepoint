@@ -7,7 +7,7 @@ import aiohttp
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 if TYPE_CHECKING:
     from .client import ChargePoint
@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 from .constants import _LOGGER
 from .exceptions import APIError, CommunicationError
 from .types import ChargingSessionUpdate, PowerUtility, VehicleInfo
+
+_START_SESSION_POLL_INTERVAL = 3
+_START_SESSION_LOOKUP_TIMEOUT = 15
 
 
 async def _send_command(
@@ -282,14 +285,37 @@ class ChargingSession:
     @classmethod
     async def start(cls, device_id: int, client: ChargePoint) -> ChargingSession:
         await _send_command(client=client, action="start", device_id=device_id)
-        # So, after wayyy too much trial and error, I noticed that the "sessionId"
-        # returned by the start session API is significantly higher than normal
-        # session IDs... I have no clue what it means, so we are just going to
-        # get the correct session ID from the status API.
-        status = await client.get_user_charging_status()
-        if status is None:
-            raise APIError("No active charging session found after start command.")
-        session = cls(session_id=status.session_id)
-        session._client = client
-        await session.async_refresh()
-        return session
+        # The start acknowledgement can arrive before the driver session.
+        # Only poll for the session here, since another Start can have effects.
+        try:
+            return await asyncio.wait_for(
+                cls._find_started_session(device_id, client),
+                timeout=_START_SESSION_LOOKUP_TIMEOUT,
+            )
+        except asyncio.TimeoutError as exc:
+            raise APIError(
+                "Start was acknowledged, but no active charging session could be "
+                "confirmed for the requested charger."
+            ) from exc
+
+    @classmethod
+    async def _find_started_session(
+        cls, device_id: int, client: ChargePoint
+    ) -> ChargingSession:
+        while True:
+            status = await client.get_user_charging_status()
+            if status is not None and status.session_id > 0:
+                session = cls(session_id=status.session_id)
+                session._client = client
+                try:
+                    await session.async_refresh()
+                except CommunicationError as exc:
+                    if exc.response.status not in (200, 404):
+                        raise
+                except ValidationError:
+                    # A just-created session can have incomplete details.
+                    pass
+                else:
+                    if session.device_id == device_id:
+                        return session
+            await asyncio.sleep(_START_SESSION_POLL_INTERVAL)
